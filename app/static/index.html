@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Avanzada Progresista — Sistema Electoral Aragua</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet"
+  />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Inter"', 'system-ui', 'sans-serif'],
+            mono: ['"Fira Code"', 'monospace'],
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+      }
+    }
+
+    .print-only {
+      display: none;
+    }
+
+    @media print {
+      body {
+        background: #ffffff !important;
+        color: #1e293b !important;
+      }
+      .no-print {
+        display: none !important;
+      }
+      .print-only {
+        display: block !important;
+      }
+      .print-table-wrapper {
+        overflow: visible !important;
+        border: none !important;
+        box-shadow: none !important;
+      }
+      table {
+        font-size: 10px !important;
+        width: 100% !important;
+        border-collapse: collapse !important;
+      }
+      th, td {
+        border: 1px solid #cbd5e1 !important;
+        padding: 4px 6px !important;
+        color: #1e293b !important;
+        background: #ffffff !important;
+      }
+    }
+  </style>
+</head>
+<body class="bg-[#F4F6F9] text-slate-800 font-sans antialiased min-h-screen">
+
+  <!-- =========================================================
+       6. PANTALLA DE LOGIN (1 COLUMNA CENTRADA, CLARA, LOGO REAL)
+       ========================================================= -->
+  <main
+    id="login-view"
+    class="min-h-screen flex flex-col justify-center items-center bg-[#F4F6F9] text-slate-800 relative overflow-hidden px-4"
+  >
+    <div class="h-1.5 w-full fixed top-0 left-0 bg-[#2563EB] z-20"></div>
+
+    <div class="w-full max-w-[420px] bg-white rounded-2xl border border-slate-200/90 shadow-lg overflow-hidden z-10">
+      <div class="bg-[#F8FAFC] border-b border-slate-200/80 px-8 py-6 flex flex-col items-center text-center">
+        <div class="bg-white p-1.5 rounded-xl border border-slate-200/80 shadow-sm">
+          <img
+            src="/static/logo.png"
+            alt="Avanzada Progresista"
+            class="h-12 w-auto mx-auto rounded-lg object-contain"
+          />
+        </div>
+        <span class="mt-3 inline-flex items-center px-3 py-1 rounded-full text-[11px] font-semibold uppercase tracking-wider bg-blue-50 text-[#2563EB] border border-blue-200/70">
+          ESTADO ARAGUA • GESTIÓN ELECTORAL CAL
+        </span>
+      </div>
+
+      <form id="login-form" class="p-8">
+        <h1 class="text-xl font-bold text-slate-800 tracking-tight">Ingreso al Sistema</h1>
+        <p class="text-xs text-slate-500 mt-1">Introduzca la credencial de operador autorizado</p>
+
+        <div class="mt-6">
+          <label for="login-password" class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
+            CLAVE DE ACCESO
+          </label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+              <i data-lucide="lock" class="w-4 h-4"></i>
+            </span>
+            <input
+              id="login-password"
+              type="password"
+              required
+              autocomplete="current-password"
+              placeholder="Ingrese su clave de acceso"
+              class="w-full bg-white border border-slate-300 hover:border-slate-400 focus:border-[#2563EB] focus:ring-4 focus:ring-blue-600/10 text-slate-800 rounded-xl pl-10 pr-10 py-3 text-sm transition-all outline-none"
+            />
+            <button
+              type="button"
+              id="toggle-password-btn"
+              aria-label="Mostrar u ocultar contraseña"
+              class="cursor-pointer absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              <i id="eye-icon" data-lucide="eye" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <div id="login-error" class="hidden mt-4 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded-xl px-3.5 py-2.5"></div>
+
+        <button
+          type="submit"
+          id="login-submit"
+          class="cursor-pointer w-full mt-6 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold py-3 rounded-xl shadow-sm transition-colors flex items-center justify-center gap-2 text-sm"
+        >
+          <span>Acceder al Panel Electoral</span>
+          <i data-lucide="arrow-right" class="w-4 h-4"></i>
+        </button>
+      </form>
+
+      <div class="bg-[#F8FAFC] border-t border-slate-200/80 px-8 py-3.5 flex justify-between items-center text-[11px] text-slate-500 font-medium">
+        <span class="inline-flex items-center">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block mr-1.5"></span>
+          Padrón CNE Aragua Activo
+        </span>
+        <span>Acceso Seguro</span>
+      </div>
+    </div>
+  </main>
+
+  <!-- =========================================================
+       2. ESTRUCTURA GLOBAL FIJA (SIDEBAR CLARA + TOPBAR + 4 KPIs)
+       ========================================================= -->
+  <div id="app-view" class="hidden min-h-screen bg-[#F4F6F9]">
+    <div id="sidebar-backdrop" class="no-print fixed inset-0 bg-slate-900/40 z-30 hidden lg:hidden"></div>
+
+    <!-- Sidebar Izquierda Oscura y 100% Fija -->
+    <aside
+      id="sidebar"
+      class="no-print fixed inset-y-0 left-0 z-40 w-64 h-screen bg-[#0F172A] text-slate-300 border-r border-slate-800 flex flex-col justify-between overflow-hidden transform -translate-x-full lg:translate-x-0 transition-transform duration-200 shrink-0"
+    >
+      <div class="flex flex-col min-h-0">
+        <!-- Cabecera Sidebar -->
+        <div class="p-4 border-b border-slate-800 flex items-center justify-between gap-2">
+          <div class="flex flex-col gap-1.5 w-full">
+            <div class="bg-white p-1 rounded-xl shadow-md">
+              <img
+                src="/static/logo.png"
+                alt="Avanzada Progresista"
+                class="w-full h-auto rounded-lg object-contain"
+              />
+            </div>
+            <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 px-1">
+              AP ARAGUA • SISTEMA CAL
+            </p>
+          </div>
+          <button type="button" id="btn-close-sidebar" class="lg:hidden cursor-pointer text-slate-400 hover:text-white self-start">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+
+        <!-- Botón + Nuevo Registro -->
+        <button
+          type="button"
+          id="btn-nuevo-registro-sidebar"
+          class="cursor-pointer bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs rounded-xl px-4 py-2.5 mx-4 mt-3 shadow-sm flex items-center justify-center gap-2 transition-colors"
+        >
+          <i data-lucide="plus" class="w-4 h-4"></i>
+          <span>Nuevo Registro</span>
+        </button>
+
+        <!-- Navegación Compacta -->
+        <nav class="px-3 py-3 space-y-3 overflow-y-auto" aria-label="Navegación principal">
+          <div>
+            <p class="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">Operaciones</p>
+            <div class="space-y-1">
+              <button
+                type="button"
+                data-tab="registro"
+                class="nav-item cursor-pointer w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs transition-all bg-blue-600/15 text-white border border-blue-500/30 font-semibold"
+              >
+                <i data-lucide="user-plus" class="nav-icon w-4 h-4 shrink-0 text-blue-400"></i>
+                <span>Recepción y Registro</span>
+              </button>
+              <button
+                type="button"
+                data-tab="listados"
+                class="nav-item cursor-pointer w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-all text-slate-400 hover:bg-slate-800/70 hover:text-white border border-transparent"
+              >
+                <i data-lucide="users" class="nav-icon w-4 h-4 shrink-0"></i>
+                <span>Directorio de Activistas</span>
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <p class="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">Analítica</p>
+            <div class="space-y-1">
+              <button
+                type="button"
+                data-tab="estadisticas"
+                class="nav-item cursor-pointer w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-all text-slate-400 hover:bg-slate-800/70 hover:text-white border border-transparent"
+              >
+                <i data-lucide="bar-chart-3" class="nav-icon w-4 h-4 shrink-0"></i>
+                <span>Reportes y Analítica (%)</span>
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <p class="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">Sistema</p>
+            <div class="bg-slate-800/60 border border-slate-700/70 rounded-xl p-3 text-slate-300 space-y-1.5 text-xs">
+              <div class="flex items-center justify-between">
+                <span class="text-slate-400">Base de Datos</span>
+                <span id="sidebar-db-status" class="font-mono text-[11px] font-semibold text-emerald-400">Conectando...</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-slate-400">Padrón CNE</span>
+                <span id="sidebar-cne-status" class="font-mono text-[11px] font-semibold text-blue-400">Online</span>
+              </div>
+            </div>
+          </div>
+        </nav>
+      </div>
+
+      <!-- Cerrar Sesión siempre visible abajo -->
+      <div class="p-3.5 border-t border-slate-800 shrink-0">
+        <button
+          type="button"
+          id="btn-logout-sidebar"
+          class="cursor-pointer w-full bg-slate-800/80 hover:bg-red-500/15 text-slate-300 hover:text-red-400 border border-slate-700/80 hover:border-red-500/30 rounded-xl py-2 text-xs font-medium flex items-center justify-center gap-2 transition-all"
+        >
+          <i data-lucide="log-out" class="w-4 h-4"></i>
+          <span>Cerrar Sesión</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Contenedor Principal Derecho con compensación lg:pl-64 -->
+    <div class="flex-1 flex flex-col min-w-0 lg:pl-64">
+
+      <!-- Topbar Superior -->
+      <header class="no-print h-16 bg-white border-b border-slate-200 px-4 sm:px-6 flex items-center justify-between gap-3 sticky top-0 z-20">
+        <div class="flex items-center gap-3 min-w-0">
+          <button type="button" id="btn-open-sidebar" class="lg:hidden cursor-pointer p-2 rounded-lg text-slate-600 hover:bg-slate-100">
+            <i data-lucide="menu" class="w-5 h-5"></i>
+          </button>
+          <h2 id="topbar-view-title" class="text-base sm:text-lg font-bold text-slate-800 truncate">
+            Recepción y Registro
+          </h2>
+        </div>
+
+        <!-- Buscador rápido global -->
+        <div class="hidden md:flex flex-1 max-w-md mx-4">
+          <div class="relative w-full">
+            <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+              <i data-lucide="search" class="w-4 h-4"></i>
+            </span>
+            <input
+              id="topbar-quick-search"
+              type="text"
+              inputmode="numeric"
+              placeholder="Buscar cédula rápido... (Enter)"
+              class="w-full bg-[#F8FAFC] border border-slate-200 focus:bg-white focus:border-[#2563EB] focus:ring-2 focus:ring-blue-600/10 rounded-xl pl-9 pr-4 py-2 text-xs font-mono text-slate-800 outline-none transition-all"
+            />
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2.5 shrink-0">
+          <span class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-[#2563EB] border border-blue-200/70">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#2563EB]"></span>
+            Estado Aragua • 18 Municipios
+          </span>
+          <button
+            type="button"
+            id="btn-logout-topbar"
+            class="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-red-600 bg-white hover:bg-red-50 border border-slate-200 rounded-xl transition-colors"
+          >
+            <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+            <span>Salir</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Contenido -->
+      <main class="flex-1 p-4 sm:p-6 max-w-[1440px] w-full mx-auto">
+
+        <!-- Toast Flotante -->
+        <div id="toast-box" class="no-print hidden fixed bottom-5 right-5 z-50 max-w-sm px-4 py-3 rounded-xl shadow-md border text-sm font-medium"></div>
+
+        <!-- Fila de 4 Tarjetas KPI Superiores -->
+        <section class="no-print grid grid-cols-1 md:grid-cols-4 gap-4 mb-6" aria-label="Indicadores Clave">
+          <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Total Activistas</span>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">Activos</span>
+            </div>
+            <div class="mt-2 flex items-baseline justify-between">
+              <p id="kpi-total-activistas" class="text-2xl font-bold font-mono text-slate-800">0</p>
+              <i data-lucide="users" class="w-5 h-5 text-[#2563EB]"></i>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Municipios con Presencia</span>
+              <span id="kpi-municipios-pct" class="font-mono text-[11px] font-semibold text-[#2563EB]">0%</span>
+            </div>
+            <div class="mt-2 flex items-baseline justify-between">
+              <p class="text-2xl font-bold font-mono text-slate-800">
+                <span id="kpi-municipios-activos">0</span><span class="text-sm font-normal text-slate-400"> / 18</span>
+              </p>
+              <i data-lucide="map-pin" class="w-5 h-5 text-indigo-500"></i>
+            </div>
+            <div class="mt-2.5 w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+              <div id="kpi-municipios-bar" class="h-full bg-[#2563EB] rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Comités CAL Activos</span>
+              <span class="text-[10px] font-medium text-slate-400">Únicos</span>
+            </div>
+            <div class="mt-2 flex items-baseline justify-between">
+              <p id="kpi-cals-activos" class="text-2xl font-bold font-mono text-slate-800">0</p>
+              <i data-lucide="shield-check" class="w-5 h-5 text-emerald-600"></i>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Centros de Votación Cubiertos</span>
+              <span class="text-[10px] font-medium text-slate-400">CNE</span>
+            </div>
+            <div class="mt-2 flex items-baseline justify-between">
+              <p id="kpi-centros-cubiertos" class="text-2xl font-bold font-mono text-slate-800">0</p>
+              <i data-lucide="building-2" class="w-5 h-5 text-amber-500"></i>
+            </div>
+          </div>
+        </section>
+
+        <!-- =========================================================
+             3. VISTA 1: RECEPCIÓN Y REGISTRO (1/3 Y 2/3 MEJORADO)
+             ========================================================= -->
+        <section id="tab-registro" class="no-print grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+          <!-- Columna Izquierda (1/3) -->
+          <div class="space-y-5">
+            <!-- 1. CONSULTAR CÉDULA -->
+            <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
+              <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700">1. Consultar Cédula</h3>
+                <span class="text-[11px] font-semibold text-[#2563EB] bg-blue-50 px-2.5 py-0.5 rounded-full">Padrón CNE</span>
+              </div>
+
+              <div class="flex gap-2">
+                <select
+                  id="cne-nacionalidad"
+                  aria-label="Nacionalidad"
+                  class="w-16 bg-[#F8FAFC] border border-slate-300 rounded-xl px-2 py-2.5 text-sm font-semibold text-slate-700 outline-none focus:border-[#2563EB]"
+                >
+                  <option value="V">V</option>
+                  <option value="E">E</option>
+                </select>
+                <input
+                  id="cne-cedula-search"
+                  type="text"
+                  inputmode="numeric"
+                  placeholder="Ej: 10000017"
+                  class="flex-1 min-w-0 bg-white border border-slate-300 rounded-xl px-3 py-2.5 text-sm font-mono text-slate-800 outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-600/10"
+                />
+                <button
+                  type="button"
+                  id="btn-buscar-cne"
+                  class="cursor-pointer px-4 py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold rounded-xl transition-colors inline-flex items-center gap-1.5 shrink-0"
+                >
+                  <i data-lucide="search" class="w-4 h-4"></i>
+                  <span>Buscar</span>
+                </button>
+              </div>
+
+              <!-- MEJORA INTEGRADA: Credencial CNE Verificada -->
+              <div id="elector-summary-card" class="hidden bg-[#F0F5FF] border border-blue-200/80 rounded-xl p-4 space-y-3">
+                <div class="flex items-start justify-between gap-2">
+                  <div class="flex items-center gap-3 min-w-0">
+                    <div id="summary-avatar" class="w-11 h-11 rounded-full bg-[#2563EB] text-white flex items-center justify-center font-bold text-sm shrink-0">
+                      AP
+                    </div>
+                    <div class="min-w-0">
+                      <p id="summary-nombre" class="text-sm font-bold text-slate-800 truncate">-</p>
+                      <p id="summary-cedula" class="text-xs font-mono text-slate-600">C.I. -</p>
+                    </div>
+                  </div>
+                  <span id="summary-codigo" class="px-2 py-0.5 rounded-lg bg-white border border-blue-200 font-mono text-[11px] font-bold text-[#2563EB] shrink-0">
+                    AP-01-0001
+                  </span>
+                </div>
+
+                <div>
+                  <span id="summary-badge" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold"></span>
+                </div>
+
+                <div class="space-y-1.5 pt-2 border-t border-blue-200/60 text-xs">
+                  <div class="flex justify-between gap-2">
+                    <span class="text-slate-500">Municipio:</span>
+                    <span id="summary-municipio" class="font-semibold text-slate-800 text-right">-</span>
+                  </div>
+                  <div class="flex justify-between gap-2">
+                    <span class="text-slate-500">Parroquia:</span>
+                    <span id="summary-parroquia" class="font-semibold text-slate-800 text-right">-</span>
+                  </div>
+                  <div class="pt-1">
+                    <span class="text-slate-500 block">Centro de Votación:</span>
+                    <span id="summary-centro" class="font-semibold text-slate-800 block mt-0.5">-</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- FLUJO OPERATIVO -->
+            <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-3">
+              <h4 class="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+                <i data-lucide="info" class="w-4 h-4 text-[#2563EB]"></i>
+                Flujo Operativo
+              </h4>
+              <ol class="space-y-2.5 text-xs text-slate-600">
+                <li class="flex gap-2.5">
+                  <span class="w-5 h-5 rounded-full bg-blue-50 text-[#2563EB] font-bold flex items-center justify-center shrink-0">1</span>
+                  <span>Consulte la cédula para verificar en el Padrón CNE o cargar un activista en modo edición.</span>
+                </li>
+                <li class="flex gap-2.5">
+                  <span class="w-5 h-5 rounded-full bg-blue-50 text-[#2563EB] font-bold flex items-center justify-center shrink-0">2</span>
+                  <span>Valide Municipio, Parroquia, Centro de Votación y complete el contacto del activista.</span>
+                </li>
+                <li class="flex gap-2.5">
+                  <span class="w-5 h-5 rounded-full bg-blue-50 text-[#2563EB] font-bold flex items-center justify-center shrink-0">3</span>
+                  <span>Asigne la estructura CAL y guarde. El código <span class="font-mono font-semibold">AP-XX-XXXX</span> se genera automáticamente.</span>
+                </li>
+              </ol>
+            </div>
+          </div>
+
+          <!-- Columna Derecha (2/3): Expediente del Activista y Estructura CAL -->
+          <form id="activista-form" class="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-5">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-4">
+              <div>
+                <h3 class="text-base font-bold text-slate-800">2. Expediente del Activista y Estructura CAL</h3>
+                <p class="text-xs text-slate-500">Los campos organizativos se normalizan automáticamente a MAYÚSCULAS.</p>
+              </div>
+              <div class="flex items-center gap-2 bg-[#F0F5FF] border border-blue-200 rounded-xl px-3 py-1.5">
+                <span class="text-[11px] font-bold uppercase text-[#2563EB]">Código:</span>
+                <input
+                  id="form-codigo"
+                  type="text"
+                  readonly
+                  value="AP-01-0001"
+                  class="w-24 bg-transparent font-mono text-xs font-bold text-[#2563EB] text-center outline-none"
+                />
+              </div>
+            </div>
+
+            <!-- BLOQUE A -->
+            <div class="border border-slate-200/80 rounded-xl p-4 space-y-4">
+              <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500">Bloque A — Datos Personales y Contacto</h4>
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div>
+                  <label for="form-cedula" class="block text-xs font-semibold text-slate-700 mb-1">Cédula *</label>
+                  <input id="form-cedula" type="text" inputmode="numeric" required placeholder="Solo números" class="w-full px-3 py-2 font-mono text-sm border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+                </div>
+                <div class="sm:col-span-2">
+                  <label for="form-nombre" class="block text-xs font-semibold text-slate-700 mb-1">Nombre y Apellido *</label>
+                  <input id="form-nombre" type="text" required placeholder="Nombre completo" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+                </div>
+                <div>
+                  <span class="block text-xs font-semibold text-slate-700 mb-1">Sexo</span>
+                  <input type="hidden" id="form-sexo" value="" />
+                  <div class="grid grid-cols-2 gap-1.5">
+                    <button
+                      type="button"
+                      data-sexo="H"
+                      class="sexo-toggle cursor-pointer py-2 px-2 rounded-xl border border-slate-300 text-xs font-semibold text-slate-600 bg-[#F8FAFC] hover:bg-slate-100 transition-colors"
+                    >
+                      Hombre (H)
+                    </button>
+                    <button
+                      type="button"
+                      data-sexo="M"
+                      class="sexo-toggle cursor-pointer py-2 px-2 rounded-xl border border-slate-300 text-xs font-semibold text-slate-600 bg-[#F8FAFC] hover:bg-slate-100 transition-colors"
+                    >
+                      Mujer (M)
+                    </button>
+                  </div>
+                </div>
+
+                <div class="sm:col-span-2">
+                  <label for="form-telefono" class="block text-xs font-semibold text-slate-700 mb-1">Teléfono</label>
+                  <div class="flex gap-1.5">
+                    <input id="form-telefono" type="text" placeholder="0412-0000000" class="flex-1 px-3 py-2 font-mono text-sm border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+                    <a
+                      id="form-whatsapp-btn"
+                      href="#"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="hidden px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-semibold items-center gap-1 transition-colors"
+                    >
+                      <i data-lucide="message-circle" class="w-4 h-4"></i>
+                      <span>WA</span>
+                    </a>
+                  </div>
+                </div>
+                <div>
+                  <label for="form-correo" class="block text-xs font-semibold text-slate-700 mb-1">Correo Electrónico</label>
+                  <input id="form-correo" type="email" placeholder="correo@ejemplo.com" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+                </div>
+                <div>
+                  <label for="form-redes" class="block text-xs font-semibold text-slate-700 mb-1">Redes Sociales</label>
+                  <input id="form-redes" type="text" placeholder="@usuario" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+                </div>
+              </div>
+            </div>
+
+            <!-- BLOQUE B -->
+            <div class="border border-slate-200/80 rounded-xl p-4 space-y-4">
+              <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500">Bloque B — Ubicación Territorial y Centro Electoral</h4>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label for="form-municipio" class="block text-xs font-semibold text-slate-700 mb-1">Municipio *</label>
+                  <select id="form-municipio" required class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl bg-white outline-none focus:border-[#2563EB]">
+                    <option value="">Seleccione municipio...</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="form-parroquia" class="block text-xs font-semibold text-slate-700 mb-1">Parroquia *</label>
+                  <select id="form-parroquia" required class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl bg-white outline-none focus:border-[#2563EB]">
+                    <option value="">Seleccione parroquia...</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="form-centro" class="block text-xs font-semibold text-slate-700 mb-1">Centro de Votación</label>
+                  <input id="form-centro" type="text" placeholder="Nombre del centro electoral CNE" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+                </div>
+                <div>
+                  <label for="form-comunidad" class="block text-xs font-semibold text-slate-700 mb-1">Comunidad / Sector</label>
+                  <input id="form-comunidad" type="text" placeholder="Nombre de la comunidad" class="w-full px-3 py-2 text-sm uppercase border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+                </div>
+              </div>
+            </div>
+
+            <!-- BLOQUE C -->
+            <div class="border border-slate-200/80 rounded-xl p-4 space-y-4">
+              <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500">Bloque C — Estructura Política (CAL)</h4>
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div>
+                  <label for="form-cal" class="block text-xs font-semibold text-slate-700 mb-1">Comité de Activismo Local (CAL)</label>
+                  <input id="form-cal" type="text" placeholder="Nombre o código del CAL" class="w-full px-3 py-2 text-sm uppercase border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+                </div>
+                <div>
+                  <label for="form-resp-cal" class="block text-xs font-semibold text-slate-700 mb-1">Responsable de CAL</label>
+                  <input id="form-resp-cal" type="text" placeholder="Responsable de CAL" class="w-full px-3 py-2 text-sm uppercase border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+                </div>
+                <div>
+                  <label for="form-resp-local" class="block text-xs font-semibold text-slate-700 mb-1">Responsable Local</label>
+                  <input id="form-resp-local" type="text" placeholder="Responsable local" class="w-full px-3 py-2 text-sm uppercase border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+                </div>
+                <div>
+                  <label for="form-resp-municipal" class="block text-xs font-semibold text-slate-700 mb-1">Responsable Municipal</label>
+                  <input id="form-resp-municipal" type="text" placeholder="Responsable municipal" class="w-full px-3 py-2 text-sm uppercase border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+                </div>
+                <div class="sm:col-span-2">
+                  <label for="form-enlace" class="block text-xs font-semibold text-slate-700 mb-1">Enlace</label>
+                  <input id="form-enlace" type="text" placeholder="Nombre del enlace político" class="w-full px-3 py-2 text-sm uppercase border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+                </div>
+              </div>
+            </div>
+
+            <div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100">
+              <div class="flex items-center gap-2">
+                <button
+                  type="button"
+                  id="btn-limpiar-form"
+                  class="cursor-pointer px-4 py-2.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-semibold rounded-xl transition-colors"
+                >
+                  Limpiar Formulario
+                </button>
+                <button
+                  type="button"
+                  id="btn-eliminar-activista"
+                  class="hidden cursor-pointer px-4 py-2.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 text-sm font-semibold rounded-xl transition-colors"
+                >
+                  Eliminar
+                </button>
+              </div>
+              <button
+                type="submit"
+                id="btn-guardar-activista"
+                class="cursor-pointer px-6 py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold rounded-xl shadow-sm transition-colors inline-flex items-center gap-2"
+              >
+                <i data-lucide="save" class="w-4 h-4"></i>
+                <span id="btn-guardar-text">Guardar Activista</span>
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <!-- =========================================================
+             4. VISTA 2: DIRECTORIO DE ACTIVISTAS (CHIPS + 8 FILTROS + DUAL + DRAWER)
+             ========================================================= -->
+        <section id="tab-listados" class="hidden space-y-5">
+          <!-- Membrete Exclusivo de Impresión -->
+          <div class="print-only mb-4 border-b-2 border-slate-300 pb-3">
+            <div class="flex items-center justify-between gap-4">
+              <div class="flex items-center gap-3">
+                <div class="bg-white p-1 rounded-lg border border-slate-200">
+                  <img src="/static/logo.png" alt="Avanzada Progresista" class="h-12 w-auto object-contain" />
+                </div>
+                <div>
+                  <h1 class="text-sm font-bold uppercase text-slate-800">
+                    AVANZADA PROGRESISTA — LISTADO OFICIAL DE ACTIVISTAS (ESTADO ARAGUA)
+                  </h1>
+                  <p id="print-filtros-resumen" class="text-xs text-slate-600 mt-0.5"></p>
+                </div>
+              </div>
+              <div class="text-right text-xs text-slate-700">
+                <p id="print-fecha"></p>
+                <p id="print-total" class="font-bold"></p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tira de Chips Rápidos de Municipios -->
+          <div class="no-print bg-white rounded-2xl border border-slate-200 p-3.5 shadow-sm">
+            <div class="flex items-center gap-2 overflow-x-auto pb-1" id="municipios-chips-bar"></div>
+          </div>
+
+          <!-- Barra Superior + Caja de 8 Filtros -->
+          <div class="no-print bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div class="relative flex-1 max-w-md">
+                <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                  <i data-lucide="search" class="w-4 h-4"></i>
+                </span>
+                <input
+                  id="flt-cedula"
+                  type="text"
+                  inputmode="numeric"
+                  placeholder="Buscador instantáneo por cédula..."
+                  class="w-full bg-[#F8FAFC] border border-slate-300 focus:bg-white focus:border-[#2563EB] rounded-xl pl-9 pr-4 py-2 text-sm font-mono outline-none"
+                />
+              </div>
+
+              <div class="flex flex-wrap items-center gap-2">
+                <!-- Conmutador Vista Tabla / Vista Credenciales -->
+                <div class="bg-slate-100 p-1 rounded-xl inline-flex items-center">
+                  <button
+                    type="button"
+                    id="view-mode-tabla"
+                    class="cursor-pointer px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-[#2563EB] shadow-sm inline-flex items-center gap-1"
+                  >
+                    <i data-lucide="table-2" class="w-3.5 h-3.5"></i>
+                    <span>Vista Tabla</span>
+                  </button>
+                  <button
+                    type="button"
+                    id="view-mode-cards"
+                    class="cursor-pointer px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-800 inline-flex items-center gap-1"
+                  >
+                    <i data-lucide="id-card" class="w-3.5 h-3.5"></i>
+                    <span>Vista Credenciales</span>
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  id="btn-exportar-csv"
+                  class="cursor-pointer inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#059669] hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl transition-colors"
+                >
+                  <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+                  <span>Exportar Excel (CSV)</span>
+                </button>
+                <button
+                  type="button"
+                  id="btn-imprimir"
+                  class="cursor-pointer inline-flex items-center gap-1.5 px-3.5 py-2 bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 text-xs font-semibold rounded-xl transition-colors"
+                >
+                  <i data-lucide="printer" class="w-4 h-4"></i>
+                  <span>Imprimir Reporte / PDF</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-3 border-t border-slate-100">
+              <div>
+                <label for="flt-codigo" class="block text-[11px] font-semibold text-slate-600 mb-1">1. Código (AP-...)</label>
+                <input id="flt-codigo" type="text" placeholder="AP-01-0001" class="w-full px-3 py-2 font-mono text-xs border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+              </div>
+              <div>
+                <label for="flt-municipio" class="block text-[11px] font-semibold text-slate-600 mb-1">2. Municipio (01-18)</label>
+                <select id="flt-municipio" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl bg-white outline-none focus:border-[#2563EB]">
+                  <option value="">Todos los Municipios</option>
+                </select>
+              </div>
+              <div>
+                <label for="flt-parroquia" class="block text-[11px] font-semibold text-slate-600 mb-1">3. Parroquia</label>
+                <select id="flt-parroquia" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl bg-white outline-none focus:border-[#2563EB]">
+                  <option value="">Todas las Parroquias</option>
+                </select>
+              </div>
+              <div>
+                <label for="flt-centro" class="block text-[11px] font-semibold text-slate-600 mb-1">4. Centro de Votación</label>
+                <input id="flt-centro" type="text" placeholder="Centro electoral" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+              </div>
+              <div>
+                <label for="flt-comunidad" class="block text-[11px] font-semibold text-slate-600 mb-1">5. Comunidad</label>
+                <input id="flt-comunidad" type="text" placeholder="Comunidad / Sector" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+              </div>
+              <div>
+                <label for="flt-enlace" class="block text-[11px] font-semibold text-slate-600 mb-1">6. Enlace</label>
+                <input id="flt-enlace" type="text" placeholder="Nombre del enlace" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+              </div>
+              <div>
+                <label for="flt-resp-cal" class="block text-[11px] font-semibold text-slate-600 mb-1">7. Responsable de CAL</label>
+                <input id="flt-resp-cal" type="text" placeholder="Responsable de CAL" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+              </div>
+              <div>
+                <label for="flt-resp-local" class="block text-[11px] font-semibold text-slate-600 mb-1">8. Responsable Local</label>
+                <input id="flt-resp-local" type="text" placeholder="Responsable local" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+              </div>
+            </div>
+
+            <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
+              <span id="listado-conteo" class="text-xs font-mono font-semibold text-[#2563EB]">0 resultado(s)</span>
+              <div class="flex items-center gap-2">
+                <button
+                  type="button"
+                  id="btn-limpiar-filtros"
+                  class="cursor-pointer px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-xl transition-colors"
+                >
+                  Limpiar Filtros
+                </button>
+                <button
+                  type="button"
+                  id="btn-aplicar-filtros"
+                  class="cursor-pointer px-4 py-1.5 text-xs font-semibold text-white bg-[#2563EB] hover:bg-[#1D4ED8] rounded-xl transition-colors"
+                >
+                  Aplicar Filtros
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Vista Tabla (sin scroll horizontal en escritorio) -->
+          <div id="contenedor-vista-tabla" class="print-table-wrapper bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
+            <table class="w-full table-auto divide-y divide-slate-200 text-xs">
+              <thead class="bg-[#F8FAFC] text-slate-600">
+                <tr>
+                  <th class="px-3 py-3 text-left font-bold uppercase tracking-wider whitespace-nowrap">Código</th>
+                  <th class="px-3 py-3 text-left font-bold uppercase tracking-wider whitespace-nowrap">Cédula</th>
+                  <th class="px-3 py-3 text-left font-bold uppercase tracking-wider">Nombre y Apellido</th>
+                  <th class="px-3 py-3 text-left font-bold uppercase tracking-wider whitespace-nowrap">Teléfono</th>
+                  <th class="px-3 py-3 text-left font-bold uppercase tracking-wider">Municipio / Parroquia</th>
+                  <th class="px-3 py-3 text-left font-bold uppercase tracking-wider">Centro de Votación</th>
+                  <th class="px-3 py-3 text-left font-bold uppercase tracking-wider">Estructura CAL</th>
+                  <th class="no-print px-3 py-3 text-right font-bold uppercase tracking-wider whitespace-nowrap">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="tabla-activistas-body" class="divide-y divide-slate-100 bg-white">
+                <tr>
+                  <td colspan="8" class="px-4 py-8 text-center text-slate-500">Cargando directorio...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Vista Credenciales -->
+          <div id="contenedor-vista-cards" class="no-print hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+        </section>
+
+        <!-- =========================================================
+             5. VISTA 3: REPORTES Y ANALÍTICA (%)
+             ========================================================= -->
+        <section id="tab-estadisticas" class="no-print hidden space-y-6">
+          <!-- Barra Superior de Filtro -->
+          <div class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-sm flex flex-col md:flex-row md:items-end justify-between gap-4">
+            <div>
+              <h3 class="text-base font-bold text-slate-800">Centro de Inteligencia Electoral</h3>
+              <p class="text-xs text-slate-500">Filtre las gráficas por Municipio y Parroquia o seleccione un municipio en el tablero.</p>
+            </div>
+            <div class="flex flex-wrap items-end gap-3">
+              <div>
+                <label for="stats-flt-municipio" class="block text-[11px] font-semibold text-slate-600 mb-1">Municipio</label>
+                <select id="stats-flt-municipio" class="px-3 py-2 text-xs border border-slate-300 rounded-xl bg-white outline-none focus:border-[#2563EB]">
+                  <option value="">Todos los Municipios (Aragua)</option>
+                </select>
+              </div>
+              <div>
+                <label for="stats-flt-parroquia" class="block text-[11px] font-semibold text-slate-600 mb-1">Parroquia</label>
+                <select id="stats-flt-parroquia" class="px-3 py-2 text-xs border border-slate-300 rounded-xl bg-white outline-none focus:border-[#2563EB]">
+                  <option value="">Todas las Parroquias</option>
+                </select>
+              </div>
+              <div class="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-xl px-3 py-2">
+                <span class="text-xs text-[#2563EB] font-medium">Universo:</span>
+                <span id="stats-total-universo" class="font-mono text-sm font-bold text-[#2563EB]">0</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tablero Territorial de los 18 Municipios -->
+          <div id="matriz-18-municipios" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 mb-6"></div>
+
+          <!-- Grid 2x2 de Gráficas Interactivas Chart.js -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+              <h4 class="text-sm font-bold text-slate-800 mb-3">1. % Por Municipio (Distribución Estatal)</h4>
+              <div class="h-64 relative"><canvas id="chart-municipio"></canvas></div>
+            </div>
+            <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+              <h4 class="text-sm font-bold text-slate-800 mb-3">2. % Por Parroquia y Comunidad (Top Ranking)</h4>
+              <div class="h-64 relative"><canvas id="chart-parroquia-comunidad"></canvas></div>
+            </div>
+            <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+              <h4 class="text-sm font-bold text-slate-800 mb-3">3. % Por Centro de Votación</h4>
+              <div class="h-64 relative"><canvas id="chart-centro"></canvas></div>
+            </div>
+            <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+              <h4 class="text-sm font-bold text-slate-800 mb-3">4. Rendimiento: % Responsable Municipal y % Responsable CAL</h4>
+              <div class="h-64 relative"><canvas id="chart-responsables"></canvas></div>
+            </div>
+          </div>
+
+          <!-- 6 Tablas Detalladas de Porcentajes Exactos (%) -->
+          <div id="stats-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       SLIDE-OVER DRAWER LATERAL DERECHO
+       ========================================================= -->
+  <div id="drawer-backdrop" class="no-print hidden fixed inset-0 bg-slate-600/25 z-40"></div>
+  <aside
+    id="drawer-panel"
+    class="no-print fixed inset-y-0 right-0 w-full max-w-md bg-white shadow-2xl border-l border-slate-200 z-50 transform translate-x-full transition-transform duration-200 flex flex-col"
+  >
+    <div class="bg-[#F8FAFC] border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+      <div>
+        <h3 id="drawer-title" class="text-sm font-bold text-slate-800">Expediente de Activista</h3>
+        <p id="drawer-subtitle" class="text-xs font-mono font-semibold text-[#2563EB]">-</p>
+      </div>
+      <button type="button" id="btn-cerrar-drawer" class="cursor-pointer p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    <div id="drawer-view-mode" class="flex-1 overflow-y-auto p-6 space-y-2.5 text-xs"></div>
+
+    <form id="drawer-edit-form" class="hidden flex-1 overflow-y-auto p-6 space-y-3 text-xs">
+      <input type="hidden" id="drw-cedula" />
+      <input type="hidden" id="drw-codigo" />
+      <div>
+        <label class="block font-semibold text-slate-700 mb-1">Nombre y Apellido *</label>
+        <input id="drw-nombre" type="text" required class="w-full px-3 py-2 border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Sexo</label>
+          <select id="drw-sexo" class="w-full px-3 py-2 border border-slate-300 rounded-xl bg-white outline-none focus:border-[#2563EB]">
+            <option value="">Seleccionar...</option>
+            <option value="H">H (Hombre)</option>
+            <option value="M">M (Mujer)</option>
+          </select>
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Teléfono</label>
+          <input id="drw-telefono" type="text" class="w-full px-3 py-2 font-mono border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Municipio *</label>
+          <select id="drw-municipio" required class="w-full px-3 py-2 border border-slate-300 rounded-xl bg-white outline-none focus:border-[#2563EB]"></select>
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Parroquia *</label>
+          <select id="drw-parroquia" required class="w-full px-3 py-2 border border-slate-300 rounded-xl bg-white outline-none focus:border-[#2563EB]"></select>
+        </div>
+      </div>
+      <div>
+        <label class="block font-semibold text-slate-700 mb-1">Centro de Votación</label>
+        <input id="drw-centro" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Correo</label>
+          <input id="drw-correo" type="email" class="w-full px-3 py-2 border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Redes Sociales</label>
+          <input id="drw-redes" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+        </div>
+      </div>
+      <div>
+        <label class="block font-semibold text-slate-700 mb-1">Comunidad</label>
+        <input id="drw-comunidad" type="text" class="w-full px-3 py-2 uppercase border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">CAL</label>
+          <input id="drw-cal" type="text" class="w-full px-3 py-2 uppercase border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Responsable CAL</label>
+          <input id="drw-resp-cal" type="text" class="w-full px-3 py-2 uppercase border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Responsable Local</label>
+          <input id="drw-resp-local" type="text" class="w-full px-3 py-2 uppercase border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Responsable Municipal</label>
+          <input id="drw-resp-municipal" type="text" class="w-full px-3 py-2 uppercase border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+        </div>
+      </div>
+      <div>
+        <label class="block font-semibold text-slate-700 mb-1">Enlace</label>
+        <input id="drw-enlace" type="text" class="w-full px-3 py-2 uppercase border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+      </div>
+    </form>
+
+    <div class="bg-[#F8FAFC] border-t border-slate-200 px-6 py-3.5 flex items-center justify-between gap-2">
+      <button
+        type="button"
+        id="btn-drawer-imprimir"
+        class="cursor-pointer inline-flex items-center gap-1.5 px-3.5 py-2 bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 text-xs font-semibold rounded-xl"
+      >
+        <i data-lucide="printer" class="w-4 h-4"></i>
+        <span>Imprimir Ficha</span>
+      </button>
+      <div class="flex items-center gap-2">
+        <button
+          type="button"
+          id="btn-drawer-switch-edit"
+          class="cursor-pointer px-4 py-2 bg-blue-50 border border-blue-200 hover:bg-blue-100 text-[#2563EB] text-xs font-semibold rounded-xl"
+        >
+          Editar Datos
+        </button>
+        <button
+          type="submit"
+          form="drawer-edit-form"
+          id="btn-drawer-save"
+          class="hidden cursor-pointer px-4 py-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold rounded-xl"
+        >
+          Guardar Cambios
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

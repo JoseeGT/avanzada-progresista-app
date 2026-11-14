@@ -1,0 +1,21 @@
+# Entorno y secretos
+.env
+serviceAccountKey.json
+
+# Bases de datos y datos locales
+*.db
+activistas_local.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
