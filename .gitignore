@@ -5,6 +5,7 @@ serviceAccountKey.json
 # Bases de datos y datos locales
 *.db
 activistas_local.json
+estructura_local.json
 
 # Python
 __pycache__/

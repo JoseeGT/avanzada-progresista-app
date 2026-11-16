@@ -9,6 +9,8 @@
     ultimoCodigoSugeridoGrupal: '',
     ultimoListado: [],
     todosActivistas: [],
+    estructura: [],
+    estRolFiltro: '',
     vistaDirectorio: 'tabla', // 'tabla' | 'cards'
     charts: {
       municipio: null,
@@ -149,7 +151,7 @@
 
   async function inicializarSesion() {
     mostrarApp();
-    await Promise.all([cargarCatalogo(), cargarEstadoSistema(), refrescarKPIs()]);
+    await Promise.all([cargarCatalogo(), cargarEstadoSistema(), refrescarKPIs(), cargarEstructura()]);
     await actualizarCodigoSiguiente($('form-municipio').value || '01');
   }
 
@@ -248,11 +250,12 @@
   const VIEW_TITLES = {
     registro: 'Recepción y Registro',
     listados: 'Directorio de Activistas',
+    estructura: 'Estructura y Responsables',
     estadisticas: 'Reportes y Analítica (%)',
   };
 
   function activarTab(tabName) {
-    ['registro', 'listados', 'estadisticas'].forEach((t) => {
+    ['registro', 'listados', 'estructura', 'estadisticas'].forEach((t) => {
       const sec = $(`tab-${t}`);
       if (t === tabName) {
         sec.classList.remove('hidden');
@@ -282,6 +285,8 @@
       requestAnimationFrame(() => actualizarPillModoCarga(false));
     } else if (tabName === 'listados') {
       cargarListado();
+    } else if (tabName === 'estructura') {
+      cargarEstructura();
     } else if (tabName === 'estadisticas') {
       renderizarAnalitica();
     }
@@ -331,6 +336,7 @@
       { el: $('flt-municipio'), placeholder: 'Todos los Municipios' },
       { el: $('drw-municipio'), placeholder: 'Seleccione municipio...' },
       { el: $('stats-flt-municipio'), placeholder: 'Todos los Municipios (Aragua)' },
+      { el: $('est-municipio'), placeholder: 'Todos / No especificado' },
     ];
 
     for (const cfg of selectsMun) {
@@ -418,6 +424,7 @@
   $('flt-municipio').addEventListener('change', (e) => {
     poblarParroquiasSelect($('flt-parroquia'), e.target.value, '', 'Todas las Parroquias', true);
     renderizarChipsMunicipios();
+    aplicarFiltrosEnMemoria();
   });
 
   $('flt-parroquia').addEventListener('change', (e) => {
@@ -429,6 +436,7 @@
       poblarParroquiasSelect($('flt-parroquia'), codMun, codPar, 'Todas las Parroquias', true);
       renderizarChipsMunicipios();
     }
+    aplicarFiltrosEnMemoria();
   });
 
   $('drw-municipio').addEventListener('change', (e) => {
@@ -901,7 +909,7 @@
       mostrarToast(`Activista ${data.activista.nombre_apellido} (${data.activista.codigo}) guardado.`, 'ok');
       cargarDatosEnFormulario(data.activista, true);
       actualizarTarjetaResumen(data.activista, 'activistas');
-      await refrescarKPIs();
+      await Promise.all([refrescarKPIs(), cargarEstructura()]);
     } catch (err) {
       mostrarToast(err.message, 'error');
     }
@@ -1243,7 +1251,7 @@
         'ok'
       );
       limpiarPlanillaGrupal();
-      await refrescarKPIs();
+      await Promise.all([refrescarKPIs(), cargarEstructura()]);
     } catch (err) {
       mostrarToast(err.message, 'error');
     }
@@ -1303,7 +1311,7 @@
         $('flt-municipio').value = cm;
         poblarParroquiasSelect($('flt-parroquia'), cm, '', 'Todas las Parroquias', true);
         renderizarChipsMunicipios();
-        cargarListado();
+        aplicarFiltrosEnMemoria();
       });
     });
   }
@@ -1328,17 +1336,57 @@
     return params;
   }
 
-  async function cargarListado() {
-    const params = obtenerQueryFiltros();
-    const qs = params.toString();
-    const url = qs ? `/api/activistas?${qs}` : '/api/activistas';
+  function normalizarFiltroTexto(val) {
+    return String(val || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toUpperCase();
+  }
 
+  function aplicarFiltrosEnMemoria() {
+    const cedQ = $('flt-cedula').value.replace(/\D/g, '');
+    const codQ = normalizarFiltroTexto($('flt-codigo').value);
+    const munRaw = $('flt-municipio').value.trim();
+    const munQ = munRaw ? munRaw.padStart(2, '0') : '';
+    const parRaw = $('flt-parroquia').value.trim();
+    const parQ = parRaw ? parRaw.padStart(2, '0') : '';
+    const centroQ = normalizarFiltroTexto($('flt-centro').value);
+    const comunidadQ = normalizarFiltroTexto($('flt-comunidad').value);
+    const respComQ = normalizarFiltroTexto($('flt-resp-comunidad').value);
+    const enlaceQ = normalizarFiltroTexto($('flt-enlace').value);
+    const respCalQ = normalizarFiltroTexto($('flt-resp-cal').value);
+    const respLocQ = normalizarFiltroTexto($('flt-resp-local').value);
+
+    const resultados = STATE.todosActivistas
+      .filter((r) => {
+        if (cedQ && !String(r.cedula || '').includes(cedQ)) return false;
+        if (codQ && !normalizarFiltroTexto(r.codigo).includes(codQ)) return false;
+        if (munQ && String(r.codigo_municipio || '').padStart(2, '0') !== munQ) return false;
+        if (parQ && String(r.codigo_parroquia || '').padStart(2, '0') !== parQ) return false;
+        if (centroQ && !normalizarFiltroTexto(r.centro_votacion).includes(centroQ)) return false;
+        if (comunidadQ && !normalizarFiltroTexto(r.comunidad).includes(comunidadQ)) return false;
+        if (respComQ && !normalizarFiltroTexto(r.responsable_comunidad).includes(respComQ)) return false;
+        if (enlaceQ && !normalizarFiltroTexto(r.enlace).includes(enlaceQ)) return false;
+        if (respCalQ && !normalizarFiltroTexto(r.responsable_cal).includes(respCalQ)) return false;
+        if (respLocQ && !normalizarFiltroTexto(r.responsable_local).includes(respLocQ)) return false;
+        return true;
+      })
+      .sort((a, b) => String(a.codigo || '').localeCompare(String(b.codigo || '')));
+
+    STATE.ultimoListado = resultados;
+    $('listado-conteo').textContent = `${resultados.length} resultado(s)`;
+    renderizarDirectorio();
+  }
+
+  async function cargarListado() {
     try {
-      const res = await apiFetch(url);
+      const res = await apiFetch('/api/activistas');
       const data = await res.json();
-      STATE.ultimoListado = data.registros || [];
-      $('listado-conteo').textContent = `${data.total} resultado(s)`;
-      renderizarDirectorio();
+      STATE.todosActivistas = data.registros || [];
+      renderizarChipsMunicipios();
+      aplicarFiltrosEnMemoria();
     } catch (err) {
       mostrarToast(err.message, 'error');
     }
@@ -1346,16 +1394,25 @@
 
   function setVistaDirectorio(modo) {
     STATE.vistaDirectorio = modo;
+    const tablaWrap = $('contenedor-vista-tabla');
+    const cardsWrap = $('contenedor-vista-cards');
+    clearTimeout(tablaWrap._heightTimer);
+    clearTimeout(cardsWrap._heightTimer);
+    tablaWrap.style.height = '';
+    tablaWrap.style.overflow = '';
+    cardsWrap.style.height = '';
+    cardsWrap.style.overflow = '';
+
     if (modo === 'tabla') {
-      $('contenedor-vista-tabla').classList.remove('hidden');
-      $('contenedor-vista-cards').classList.add('hidden');
+      tablaWrap.classList.remove('hidden');
+      cardsWrap.classList.add('hidden');
       $('view-mode-tabla').classList.add('bg-white', 'text-[#2563EB]', 'shadow-sm');
       $('view-mode-tabla').classList.remove('text-slate-600');
       $('view-mode-cards').classList.remove('bg-white', 'text-[#2563EB]', 'shadow-sm');
       $('view-mode-cards').classList.add('text-slate-600');
     } else {
-      $('contenedor-vista-tabla').classList.add('hidden');
-      $('contenedor-vista-cards').classList.remove('hidden');
+      tablaWrap.classList.add('hidden');
+      cardsWrap.classList.remove('hidden');
       $('view-mode-cards').classList.add('bg-white', 'text-[#2563EB]', 'shadow-sm');
       $('view-mode-cards').classList.remove('text-slate-600');
       $('view-mode-tabla').classList.remove('bg-white', 'text-[#2563EB]', 'shadow-sm');
@@ -1371,80 +1428,106 @@
     const regs = STATE.ultimoListado;
     const tbody = $('tabla-activistas-body');
     const cardsBox = $('contenedor-vista-cards');
+    const activeWrapper =
+      STATE.vistaDirectorio === 'tabla' ? $('contenedor-vista-tabla') : cardsBox;
+    const canAnimateHeight =
+      activeWrapper &&
+      !activeWrapper.classList.contains('hidden') &&
+      activeWrapper.offsetHeight > 0;
+    const prevHeight = canAnimateHeight ? activeWrapper.offsetHeight : 0;
 
-    if (!regs.length) {
-      tbody.innerHTML = `<tr><td colspan="8" class="px-4 py-10 text-center text-slate-500">No se encontraron activistas con los criterios aplicados.</td></tr>`;
-      cardsBox.innerHTML = `<div class="col-span-full bg-white rounded-2xl border border-slate-200 p-8 text-center text-sm text-slate-500">No se encontraron activistas con los criterios aplicados.</div>`;
-      return;
+    if (canAnimateHeight) {
+      clearTimeout(activeWrapper._heightTimer);
+      activeWrapper.style.height = `${prevHeight}px`;
+      activeWrapper.style.overflow = 'hidden';
     }
 
-    tbody.innerHTML = regs
-      .map((r) => {
-        const wa = normalizarWhatsApp(r.telefono);
-        const telHtml = r.telefono
-          ? `<div class="flex items-center gap-1.5 font-mono text-slate-700 whitespace-nowrap">
-               <span>${escapeHtml(r.telefono)}</span>
-               ${wa.length >= 10 ? `<a href="https://wa.me/${wa}" target="_blank" rel="noopener noreferrer" class="no-print text-emerald-600 hover:text-emerald-700"><i data-lucide="message-circle" class="w-3.5 h-3.5"></i></a>` : ''}
-             </div>`
-          : '<span class="text-slate-400">-</span>';
+    if (!regs.length) {
+      tbody.innerHTML = `<tr class="dir-row-enter"><td colspan="8" class="px-4 py-16 text-center text-slate-500">No se encontraron activistas con los criterios aplicados.</td></tr>`;
+      cardsBox.innerHTML = `<div class="dir-row-enter col-span-full bg-white rounded-2xl border border-slate-200 p-8 text-center text-sm text-slate-500">No se encontraron activistas con los criterios aplicados.</div>`;
+    } else {
+      tbody.innerHTML = regs
+        .map((r, idx) => {
+          const wa = normalizarWhatsApp(r.telefono);
+          const telHtml = r.telefono
+            ? `<div class="flex items-center gap-1.5 font-mono text-slate-700 whitespace-nowrap">
+                 <span>${escapeHtml(r.telefono)}</span>
+                 ${wa.length >= 10 ? `<a href="https://wa.me/${wa}" target="_blank" rel="noopener noreferrer" class="no-print text-emerald-600 hover:text-emerald-700"><i data-lucide="message-circle" class="w-3.5 h-3.5"></i></a>` : ''}
+               </div>`
+            : '<span class="text-slate-400">-</span>';
 
-        return `
-          <tr class="hover:bg-blue-50/30 transition-colors">
-            <td class="px-3 py-3 font-mono font-semibold text-[#2563EB] whitespace-nowrap">${escapeHtml(r.codigo)}</td>
-            <td class="px-3 py-3 font-mono text-slate-700 whitespace-nowrap">${escapeHtml(r.cedula)}</td>
-            <td class="px-3 py-3 font-semibold text-slate-800 max-w-[200px] whitespace-normal leading-tight">${escapeHtml(r.nombre_apellido)}</td>
-            <td class="px-3 py-3">${telHtml}</td>
-            <td class="px-3 py-3 max-w-[170px] whitespace-normal leading-tight">
-              <div class="font-medium text-slate-800">${escapeHtml(r.municipio)}</div>
-              <div class="text-[11px] text-slate-500">${escapeHtml(r.parroquia)}</div>
-            </td>
-            <td class="px-3 py-3 text-slate-600 max-w-[200px] whitespace-normal leading-tight">${escapeHtml(r.centro_votacion || '-')}</td>
-            <td class="px-3 py-3 max-w-[180px] whitespace-normal leading-tight">
-              <div class="font-medium text-slate-800">${escapeHtml(r.comite_activismo_local || '-')}</div>
-              <div class="text-[11px] text-slate-500">${escapeHtml(r.responsable_cal || r.enlace || '')}</div>
-            </td>
-            <td class="no-print px-3 py-3 text-right whitespace-nowrap">
-              <div class="inline-flex items-center gap-1">
-                <button type="button" data-action="ver" data-cedula="${escapeHtml(r.cedula)}" class="row-action-btn cursor-pointer px-2.5 py-1 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">
-                  Expediente
-                </button>
-                <button type="button" data-action="editar" data-cedula="${escapeHtml(r.cedula)}" class="row-action-btn cursor-pointer px-2.5 py-1 text-xs font-semibold text-[#2563EB] bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors">
-                  Editar
-                </button>
-                <button type="button" data-action="eliminar" data-cedula="${escapeHtml(r.cedula)}" class="row-action-btn cursor-pointer px-2.5 py-1 text-xs font-semibold text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors">
-                  Eliminar
-                </button>
-              </div>
-            </td>
-          </tr>`;
-      })
-      .join('');
+          return `
+            <tr class="dir-row-enter hover:bg-blue-50/30 transition-colors" style="animation-delay: ${Math.min(idx, 10) * 16}ms">
+              <td class="px-3 py-3 font-mono font-semibold text-[#2563EB] whitespace-nowrap">${escapeHtml(r.codigo)}</td>
+              <td class="px-3 py-3 font-mono text-slate-700 whitespace-nowrap">${escapeHtml(r.cedula)}</td>
+              <td class="px-3 py-3 font-semibold text-slate-800 max-w-[200px] whitespace-normal leading-tight">${escapeHtml(r.nombre_apellido)}</td>
+              <td class="px-3 py-3">${telHtml}</td>
+              <td class="px-3 py-3 max-w-[170px] whitespace-normal leading-tight">
+                <div class="font-medium text-slate-800">${escapeHtml(r.municipio)}</div>
+                <div class="text-[11px] text-slate-500">${escapeHtml(r.parroquia)}</div>
+              </td>
+              <td class="px-3 py-3 text-slate-600 max-w-[200px] whitespace-normal leading-tight">${escapeHtml(r.centro_votacion || '-')}</td>
+              <td class="px-3 py-3 max-w-[180px] whitespace-normal leading-tight">
+                <div class="font-medium text-slate-800">${escapeHtml(r.comite_activismo_local || '-')}</div>
+                <div class="text-[11px] text-slate-500">${escapeHtml(r.responsable_cal || r.enlace || '')}</div>
+              </td>
+              <td class="no-print px-3 py-3 text-right whitespace-nowrap">
+                <div class="inline-flex items-center gap-1">
+                  <button type="button" data-action="ver" data-cedula="${escapeHtml(r.cedula)}" class="row-action-btn cursor-pointer px-2.5 py-1 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">
+                    Expediente
+                  </button>
+                  <button type="button" data-action="editar" data-cedula="${escapeHtml(r.cedula)}" class="row-action-btn cursor-pointer px-2.5 py-1 text-xs font-semibold text-[#2563EB] bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors">
+                    Editar
+                  </button>
+                  <button type="button" data-action="eliminar" data-cedula="${escapeHtml(r.cedula)}" class="row-action-btn cursor-pointer px-2.5 py-1 text-xs font-semibold text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors">
+                    Eliminar
+                  </button>
+                </div>
+              </td>
+            </tr>`;
+        })
+        .join('');
 
-    cardsBox.innerHTML = regs
-      .map((r) => {
-        const wa = normalizarWhatsApp(r.telefono);
-        return `
-          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-col justify-between space-y-3">
-            <div class="flex items-start justify-between gap-2">
-              <div class="min-w-0">
-                <span class="inline-block px-2 py-0.5 rounded-lg bg-blue-50 text-[#2563EB] font-mono text-[11px] font-bold">${escapeHtml(r.codigo)}</span>
-                <h4 class="text-sm font-bold text-slate-800 mt-1.5 truncate">${escapeHtml(r.nombre_apellido)}</h4>
-                <p class="text-xs font-mono text-slate-500">C.I. ${escapeHtml(r.cedula)}</p>
+      cardsBox.innerHTML = regs
+        .map((r, idx) => {
+          const wa = normalizarWhatsApp(r.telefono);
+          return `
+            <div class="dir-row-enter bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-col justify-between space-y-3" style="animation-delay: ${Math.min(idx, 10) * 18}ms">
+              <div class="flex items-start justify-between gap-2">
+                <div class="min-w-0">
+                  <span class="inline-block px-2 py-0.5 rounded-lg bg-blue-50 text-[#2563EB] font-mono text-[11px] font-bold">${escapeHtml(r.codigo)}</span>
+                  <h4 class="text-sm font-bold text-slate-800 mt-1.5 truncate">${escapeHtml(r.nombre_apellido)}</h4>
+                  <p class="text-xs font-mono text-slate-500">C.I. ${escapeHtml(r.cedula)}</p>
+                </div>
+                ${wa.length >= 10 ? `<a href="https://wa.me/${wa}" target="_blank" rel="noopener noreferrer" class="p-2 rounded-xl bg-emerald-50 text-emerald-600 hover:bg-emerald-100"><i data-lucide="message-circle" class="w-4 h-4"></i></a>` : ''}
               </div>
-              ${wa.length >= 10 ? `<a href="https://wa.me/${wa}" target="_blank" rel="noopener noreferrer" class="p-2 rounded-xl bg-emerald-50 text-emerald-600 hover:bg-emerald-100"><i data-lucide="message-circle" class="w-4 h-4"></i></a>` : ''}
-            </div>
-            <div class="text-xs space-y-1 border-t border-slate-100 pt-2.5 text-slate-600">
-              <p><span class="font-semibold text-slate-700">Territorio:</span> ${escapeHtml(r.municipio)} / ${escapeHtml(r.parroquia)}</p>
-              <p class="truncate"><span class="font-semibold text-slate-700">Centro:</span> ${escapeHtml(r.centro_votacion || '-')}</p>
-              <p><span class="font-semibold text-slate-700">CAL:</span> ${escapeHtml(r.comite_activismo_local || '-')}</p>
-            </div>
-            <div class="flex items-center justify-end gap-1.5 pt-2 border-t border-slate-100">
-              <button type="button" data-action="ver" data-cedula="${escapeHtml(r.cedula)}" class="row-action-btn cursor-pointer px-2.5 py-1 text-[11px] font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg">Expediente</button>
-              <button type="button" data-action="editar" data-cedula="${escapeHtml(r.cedula)}" class="row-action-btn cursor-pointer px-2.5 py-1 text-[11px] font-semibold text-[#2563EB] bg-blue-50 hover:bg-blue-100 rounded-lg">Editar</button>
-            </div>
-          </div>`;
-      })
-      .join('');
+              <div class="text-xs space-y-1 border-t border-slate-100 pt-2.5 text-slate-600">
+                <p><span class="font-semibold text-slate-700">Territorio:</span> ${escapeHtml(r.municipio)} / ${escapeHtml(r.parroquia)}</p>
+                <p class="truncate"><span class="font-semibold text-slate-700">Centro:</span> ${escapeHtml(r.centro_votacion || '-')}</p>
+                <p><span class="font-semibold text-slate-700">CAL:</span> ${escapeHtml(r.comite_activismo_local || '-')}</p>
+              </div>
+              <div class="flex items-center justify-end gap-1.5 pt-2 border-t border-slate-100">
+                <button type="button" data-action="ver" data-cedula="${escapeHtml(r.cedula)}" class="row-action-btn cursor-pointer px-2.5 py-1 text-[11px] font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg">Expediente</button>
+                <button type="button" data-action="editar" data-cedula="${escapeHtml(r.cedula)}" class="row-action-btn cursor-pointer px-2.5 py-1 text-[11px] font-semibold text-[#2563EB] bg-blue-50 hover:bg-blue-100 rounded-lg">Editar</button>
+              </div>
+            </div>`;
+        })
+        .join('');
+    }
+
+    if (canAnimateHeight) {
+      activeWrapper.style.height = 'auto';
+      const nextHeight = activeWrapper.offsetHeight;
+      activeWrapper.style.height = `${prevHeight}px`;
+      void activeWrapper.offsetHeight;
+      activeWrapper.style.height = `${nextHeight}px`;
+      activeWrapper._heightTimer = setTimeout(() => {
+        activeWrapper.style.height = '';
+        activeWrapper.style.overflow = '';
+      }, 400);
+    }
+
+    if (!regs.length) return;
 
     refreshIcons();
 
@@ -1473,7 +1556,6 @@
     });
   }
 
-  $('btn-aplicar-filtros').addEventListener('click', cargarListado);
   $('btn-limpiar-filtros').addEventListener('click', () => {
     $('flt-cedula').value = '';
     $('flt-codigo').value = '';
@@ -1486,13 +1568,20 @@
     $('flt-resp-cal').value = '';
     $('flt-resp-local').value = '';
     renderizarChipsMunicipios();
-    cargarListado();
+    aplicarFiltrosEnMemoria();
   });
 
-  let cedulaDebounce = null;
-  $('flt-cedula').addEventListener('input', () => {
-    clearTimeout(cedulaDebounce);
-    cedulaDebounce = setTimeout(cargarListado, 250);
+  [
+    'flt-cedula',
+    'flt-codigo',
+    'flt-centro',
+    'flt-comunidad',
+    'flt-resp-comunidad',
+    'flt-enlace',
+    'flt-resp-cal',
+    'flt-resp-local',
+  ].forEach((id) => {
+    $(id).addEventListener('input', aplicarFiltrosEnMemoria);
   });
 
   // =========================================================
@@ -1635,7 +1724,7 @@
       });
       cerrarDrawer();
       mostrarToast('Expediente actualizado correctamente.', 'ok');
-      await Promise.all([cargarListado(), refrescarKPIs()]);
+      await Promise.all([cargarListado(), refrescarKPIs(), cargarEstructura()]);
     } catch (err) {
       mostrarToast(err.message, 'error');
     }
@@ -1662,15 +1751,175 @@
     }
   });
 
-  $('btn-imprimir').addEventListener('click', () => {
+  let RPT_LOGO_DATA_URL = '';
+  try {
+    RPT_LOGO_DATA_URL = localStorage.getItem('ap_rpt_logo') || '';
+    const savedDest = localStorage.getItem('ap_rpt_nombre') || '';
+    if (savedDest && $('rpt-destinatario-nombre')) {
+      $('rpt-destinatario-nombre').value = savedDest;
+    }
+  } catch (_) {}
+
+  function actualizarUIPersonalizacionReporte(expandirSiTieneDatos = false) {
+    const nombre = ($('rpt-destinatario-nombre')?.value || '').trim();
+    const tieneLogo = Boolean(RPT_LOGO_DATA_URL);
+    const tieneDatos = Boolean(nombre || tieneLogo);
+
+    if (tieneLogo) {
+      $('rpt-logo-preview').src = RPT_LOGO_DATA_URL;
+      $('rpt-logo-preview-wrap').classList.remove('hidden');
+      $('rpt-logo-preview-wrap').classList.add('flex');
+      $('rpt-logo-empty-hint').classList.add('hidden');
+    } else {
+      $('rpt-logo-preview').src = '';
+      $('rpt-logo-preview-wrap').classList.add('hidden');
+      $('rpt-logo-preview-wrap').classList.remove('flex');
+      $('rpt-logo-empty-hint').classList.remove('hidden');
+    }
+
+    $('btn-limpiar-personalizar-rpt').classList.toggle('hidden', !tieneDatos);
+    if (expandirSiTieneDatos && tieneDatos) {
+      $('rpt-personalizar-panel').classList.remove('hidden');
+    }
+    const abierto = !$('rpt-personalizar-panel').classList.contains('hidden');
+    $('btn-toggle-personalizar-text').textContent = abierto
+      ? 'Ocultar personalización'
+      : 'Personalizar destinatario / institución (opcional)';
+  }
+
+  function prepararMembreteImpresion() {
     const params = obtenerQueryFiltros();
     const partes = [];
     for (const [k, v] of params.entries()) partes.push(`${k}: ${v}`);
+    const resumenFiltros =
+      partes.length > 0 ? `Filtros aplicados: ${partes.join(' | ')}` : 'Listado General (Estado Aragua)';
+
     $('print-fecha').textContent = `Fecha: ${new Date().toLocaleString('es-VE')}`;
     $('print-total').textContent = `Total de registros: ${STATE.ultimoListado.length}`;
-    $('print-filtros-resumen').textContent =
-      partes.length > 0 ? `Filtros aplicados: ${partes.join(' | ')}` : 'Listado General (Estado Aragua)';
-    window.print();
+    $('print-filtros-resumen').textContent = resumenFiltros;
+
+    const nombreDest = ($('rpt-destinatario-nombre')?.value || '').replace(/\s+/g, ' ').trim().toUpperCase();
+    const boxDest = $('print-destinatario-box');
+    const imgDest = $('print-destinatario-logo');
+    const txtDest = $('print-destinatario-nombre');
+
+    if (nombreDest || RPT_LOGO_DATA_URL) {
+      boxDest.classList.remove('hidden');
+      txtDest.textContent = nombreDest || 'INSTITUCIÓN DESTINATARIA';
+      if (RPT_LOGO_DATA_URL) {
+        imgDest.src = RPT_LOGO_DATA_URL;
+        imgDest.classList.remove('hidden');
+      } else {
+        imgDest.src = '';
+        imgDest.classList.add('hidden');
+      }
+    } else {
+      boxDest.classList.add('hidden');
+      txtDest.textContent = '';
+      imgDest.src = '';
+      imgDest.classList.add('hidden');
+    }
+
+    try {
+      if (nombreDest) localStorage.setItem('ap_rpt_nombre', nombreDest);
+      else localStorage.removeItem('ap_rpt_nombre');
+      if (RPT_LOGO_DATA_URL) localStorage.setItem('ap_rpt_logo', RPT_LOGO_DATA_URL);
+      else localStorage.removeItem('ap_rpt_logo');
+    } catch (_) {}
+
+    return resumenFiltros;
+  }
+
+  function abrirModalReporte() {
+    const params = obtenerQueryFiltros();
+    const partes = [];
+    for (const [k, v] of params.entries()) partes.push(`${k}: ${v}`);
+    $('rpt-conteo-badge').textContent = `${STATE.ultimoListado.length} registro(s)`;
+    $('rpt-filtros-badge').textContent =
+      partes.length > 0 ? partes.join(' • ') : 'Listado General (Estado Aragua)';
+
+    const tieneDatos = Boolean(
+      ($('rpt-destinatario-nombre')?.value || '').trim() || RPT_LOGO_DATA_URL
+    );
+    if (!tieneDatos) {
+      $('rpt-personalizar-panel').classList.add('hidden');
+    }
+    actualizarUIPersonalizacionReporte(true);
+
+    $('reporte-modal').classList.remove('hidden');
+    retriggerAnim($('reporte-modal-card'), 'animate-toast-in');
+  }
+
+  function cerrarModalReporte() {
+    $('reporte-modal').classList.add('hidden');
+  }
+
+  $('btn-imprimir').addEventListener('click', abrirModalReporte);
+  $('btn-cerrar-modal-reporte').addEventListener('click', cerrarModalReporte);
+  $('btn-cancelar-modal-reporte').addEventListener('click', cerrarModalReporte);
+  $('reporte-modal-backdrop').addEventListener('click', cerrarModalReporte);
+
+  $('btn-toggle-personalizar-rpt').addEventListener('click', () => {
+    $('rpt-personalizar-panel').classList.toggle('hidden');
+    actualizarUIPersonalizacionReporte(false);
+    if (!$('rpt-personalizar-panel').classList.contains('hidden')) {
+      setTimeout(() => $('rpt-destinatario-nombre').focus(), 40);
+    }
+  });
+
+  $('rpt-destinatario-nombre').addEventListener('input', () => {
+    actualizarUIPersonalizacionReporte(false);
+  });
+
+  $('rpt-destinatario-logo-input').addEventListener('change', (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      mostrarToast('Seleccione un archivo de imagen válido (PNG, JPG, SVG).', 'error');
+      e.target.value = '';
+      return;
+    }
+    if (file.size > 1500 * 1024) {
+      mostrarToast('El logo debe pesar menos de 1.5 MB.', 'error');
+      e.target.value = '';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      RPT_LOGO_DATA_URL = String(reader.result || '');
+      actualizarUIPersonalizacionReporte(false);
+    };
+    reader.readAsDataURL(file);
+  });
+
+  $('btn-quitar-logo-rpt').addEventListener('click', () => {
+    RPT_LOGO_DATA_URL = '';
+    $('rpt-destinatario-logo-input').value = '';
+    actualizarUIPersonalizacionReporte(false);
+  });
+
+  $('btn-limpiar-personalizar-rpt').addEventListener('click', () => {
+    $('rpt-destinatario-nombre').value = '';
+    RPT_LOGO_DATA_URL = '';
+    $('rpt-destinatario-logo-input').value = '';
+    try {
+      localStorage.removeItem('ap_rpt_nombre');
+      localStorage.removeItem('ap_rpt_logo');
+    } catch (_) {}
+    $('rpt-personalizar-panel').classList.add('hidden');
+    actualizarUIPersonalizacionReporte(false);
+  });
+
+  $('btn-confirmar-imprimir').addEventListener('click', () => {
+    prepararMembreteImpresion();
+    cerrarModalReporte();
+    setTimeout(() => window.print(), 60);
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !$('reporte-modal').classList.contains('hidden')) {
+      cerrarModalReporte();
+    }
   });
 
   // =========================================================
@@ -1916,6 +2165,556 @@
       })
       .join('');
   }
+
+  // =========================================================
+  // 6. VISTA 4: ESTRUCTURA Y RESPONSABLES + MODAL + COMBOBOX ESCRIBIBLE
+  // =========================================================
+  const ESTRUCTURA_ROLES = {
+    enlace: {
+      label: 'Enlace (quien entrega)',
+      corto: 'Enlace',
+      badge: 'bg-blue-50 text-[#2563EB] border-blue-200',
+      campoActivista: 'enlace',
+    },
+    responsable_local: {
+      label: 'Responsable Local',
+      corto: 'Resp. Local',
+      badge: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      campoActivista: 'responsable_local',
+    },
+    responsable_comunidad: {
+      label: 'Responsable de Comunidad',
+      corto: 'Resp. Comunidad',
+      badge: 'bg-amber-50 text-amber-700 border-amber-200',
+      campoActivista: 'responsable_comunidad',
+    },
+    responsable_municipal: {
+      label: 'Responsable Municipal',
+      corto: 'Resp. Municipal',
+      badge: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+      campoActivista: 'responsable_municipal',
+    },
+    responsable_cal: {
+      label: 'Responsable de CAL',
+      corto: 'Resp. CAL',
+      badge: 'bg-violet-50 text-violet-700 border-violet-200',
+      campoActivista: 'responsable_cal',
+    },
+  };
+
+  const PENDING_ESTRUCTURA_SAVES = new Set();
+  const COMBOBOX_REFRESHERS = [];
+
+  function normalizarNombreEstructura(val) {
+    return String(val || '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toUpperCase();
+  }
+
+  function existeEnEstructura(rol, nombre) {
+    const norm = normalizarNombreEstructura(nombre);
+    if (!norm) return false;
+    return STATE.estructura.some((it) => it.rol === rol && it.nombre === norm);
+  }
+
+  function refrescarComboboxesEstructura() {
+    COMBOBOX_REFRESHERS.forEach((fn) => fn());
+  }
+
+  async function cargarEstructura() {
+    try {
+      const res = await apiFetch('/api/estructura');
+      const data = await res.json();
+      STATE.estructura = data.registros || [];
+      renderizarEstructura();
+      refrescarComboboxesEstructura();
+    } catch (_) {}
+  }
+
+  async function guardarEstructuraAuto(rol, rawNombre, { codigoMunicipio = '', silent = false } = {}) {
+    const nombre = normalizarNombreEstructura(rawNombre);
+    if (!STATE.token || !ESTRUCTURA_ROLES[rol] || nombre.length < 2) return null;
+    if (existeEnEstructura(rol, nombre)) return null;
+
+    const key = `${rol}|${nombre}`;
+    if (PENDING_ESTRUCTURA_SAVES.has(key)) return null;
+    PENDING_ESTRUCTURA_SAVES.add(key);
+
+    try {
+      const res = await apiFetch('/api/estructura', {
+        method: 'POST',
+        body: JSON.stringify({
+          rol,
+          nombre,
+          codigo_municipio: codigoMunicipio || '',
+        }),
+      });
+      const data = await res.json();
+      if (data.item) {
+        const idx = STATE.estructura.findIndex((x) => x.id === data.item.id);
+        if (idx >= 0) STATE.estructura[idx] = data.item;
+        else STATE.estructura.push(data.item);
+        STATE.estructura.sort((a, b) =>
+          (a.rol + '|' + a.nombre).localeCompare(b.rol + '|' + b.nombre)
+        );
+        renderizarEstructura();
+        refrescarComboboxesEstructura();
+        if (!silent && data.creado) {
+          mostrarToast(
+            `${data.item.nombre} guardado automáticamente en ${ESTRUCTURA_ROLES[rol].label}.`,
+            'ok'
+          );
+        }
+      }
+      return data.item || null;
+    } catch (_) {
+      return null;
+    } finally {
+      PENDING_ESTRUCTURA_SAVES.delete(key);
+    }
+  }
+
+  function crearComboboxEstructura(inputEl, rol, getMunCode = () => '') {
+    if (!inputEl || inputEl.dataset.comboboxReady) return;
+    inputEl.dataset.comboboxReady = '1';
+    inputEl.setAttribute('autocomplete', 'off');
+    inputEl.classList.add('pr-8');
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'relative w-full';
+    inputEl.parentNode.insertBefore(wrapper, inputEl);
+    wrapper.appendChild(inputEl);
+
+    const toggleBtn = document.createElement('button');
+    toggleBtn.type = 'button';
+    toggleBtn.tabIndex = -1;
+    toggleBtn.setAttribute('aria-label', `Ver opciones de ${ESTRUCTURA_ROLES[rol]?.label || rol}`);
+    toggleBtn.className =
+      'cursor-pointer absolute inset-y-0 right-0 px-2.5 flex items-center text-slate-400 hover:text-[#2563EB] transition-colors';
+    toggleBtn.innerHTML =
+      '<svg class="w-4 h-4 transition-transform duration-150" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>';
+    wrapper.appendChild(toggleBtn);
+
+    const menu = document.createElement('div');
+    menu.className =
+      'hidden absolute left-0 right-0 top-full mt-1 z-40 bg-white border border-slate-200 rounded-xl shadow-lg max-h-56 overflow-y-auto py-1';
+    wrapper.appendChild(menu);
+
+    let isOpen = false;
+    let activeIdx = -1;
+    let ignoreBlurSave = false;
+
+    const getOpciones = (mostrarTodas = false) => {
+      const q = normalizarNombreEstructura(inputEl.value);
+      const delRol = STATE.estructura.filter((it) => it.rol === rol);
+      if (mostrarTodas || !q) return delRol;
+      return delRol.filter((it) => it.nombre.includes(q));
+    };
+
+    const posicionarMenu = () => {
+      const rect = inputEl.getBoundingClientRect();
+      const espacioAbajo = window.innerHeight - rect.bottom;
+      if (espacioAbajo < 220 && rect.top > 220) {
+        menu.classList.remove('top-full', 'mt-1');
+        menu.classList.add('bottom-full', 'mb-1');
+      } else {
+        menu.classList.remove('bottom-full', 'mb-1');
+        menu.classList.add('top-full', 'mt-1');
+      }
+    };
+
+    const renderMenu = (mostrarTodas = false) => {
+      const opciones = getOpciones(mostrarTodas);
+      const q = normalizarNombreEstructura(inputEl.value);
+      const yaExiste = existeEnEstructura(rol, q);
+      const puedeCrear = q.length >= 2 && !yaExiste;
+
+      const itemsHtml = opciones
+        .map((it, idx) => {
+          const meta = [it.municipio, it.telefono].filter(Boolean).join(' • ');
+          const selected = it.nombre === q;
+          return `
+            <button
+              type="button"
+              data-combo-val="${escapeHtml(it.nombre)}"
+              data-combo-idx="${idx}"
+              class="combo-opt w-full text-left px-3 py-2 text-xs flex items-center justify-between gap-2 transition-colors ${
+                idx === activeIdx
+                  ? 'bg-blue-50 text-[#2563EB]'
+                  : selected
+                  ? 'bg-slate-50 text-[#2563EB] font-semibold'
+                  : 'text-slate-700 hover:bg-slate-50'
+              }"
+            >
+              <span class="font-semibold truncate">${escapeHtml(it.nombre)}</span>
+              ${meta ? `<span class="text-[10px] text-slate-400 shrink-0">${escapeHtml(meta)}</span>` : ''}
+            </button>`;
+        })
+        .join('');
+
+      const createHtml = puedeCrear
+        ? `
+          <button
+            type="button"
+            data-combo-create="${escapeHtml(q)}"
+            data-combo-idx="${opciones.length}"
+            class="combo-opt w-full text-left px-3 py-2 text-xs flex items-center gap-1.5 border-t border-slate-100 text-[#2563EB] font-semibold ${
+              activeIdx === opciones.length ? 'bg-blue-50' : 'bg-blue-50/40 hover:bg-blue-50'
+            }"
+          >
+            <span>+ Guardar “${escapeHtml(q)}” en estructura</span>
+          </button>`
+        : '';
+
+      if (!itemsHtml && !createHtml) {
+        menu.innerHTML =
+          '<p class="px-3 py-2.5 text-[11px] text-slate-400 text-center">Sin registros aún. Escriba un nombre para guardarlo automáticamente.</p>';
+      } else {
+        menu.innerHTML = itemsHtml + createHtml;
+      }
+
+      menu.querySelectorAll('.combo-opt').forEach((btn) => {
+        btn.addEventListener('mousedown', async (e) => {
+          e.preventDefault();
+          ignoreBlurSave = true;
+          const createVal = btn.dataset.comboCreate;
+          const val = createVal || btn.dataset.comboVal || '';
+          inputEl.value = val;
+          cerrar();
+          if (createVal) {
+            await guardarEstructuraAuto(rol, createVal, { codigoMunicipio: getMunCode() });
+          }
+          inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+      });
+    };
+
+    const abrir = (mostrarTodas = false) => {
+      posicionarMenu();
+      activeIdx = -1;
+      renderMenu(mostrarTodas);
+      menu.classList.remove('hidden');
+      isOpen = true;
+      toggleBtn.querySelector('svg').classList.add('rotate-180');
+    };
+
+    const cerrar = () => {
+      menu.classList.add('hidden');
+      isOpen = false;
+      activeIdx = -1;
+      toggleBtn.querySelector('svg').classList.remove('rotate-180');
+    };
+
+    toggleBtn.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      if (isOpen) {
+        cerrar();
+      } else {
+        inputEl.focus();
+        abrir(true);
+      }
+    });
+
+    inputEl.addEventListener('focus', () => abrir(true));
+    inputEl.addEventListener('input', () => abrir(false));
+
+    inputEl.addEventListener('keydown', async (e) => {
+      if (!isOpen && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+        abrir(true);
+        return;
+      }
+      const btns = Array.from(menu.querySelectorAll('.combo-opt'));
+      if (e.key === 'ArrowDown' && btns.length) {
+        e.preventDefault();
+        activeIdx = (activeIdx + 1) % btns.length;
+        renderMenu(false);
+      } else if (e.key === 'ArrowUp' && btns.length) {
+        e.preventDefault();
+        activeIdx = (activeIdx - 1 + btns.length) % btns.length;
+        renderMenu(false);
+      } else if (e.key === 'Enter') {
+        if (isOpen && activeIdx >= 0 && btns[activeIdx]) {
+          e.preventDefault();
+          btns[activeIdx].dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+        } else if (normalizarNombreEstructura(inputEl.value).length >= 2) {
+          e.preventDefault();
+          const norm = normalizarNombreEstructura(inputEl.value);
+          inputEl.value = norm;
+          cerrar();
+          await guardarEstructuraAuto(rol, norm, { codigoMunicipio: getMunCode() });
+        }
+      } else if (e.key === 'Escape') {
+        cerrar();
+      }
+    });
+
+    inputEl.addEventListener('blur', () => {
+      setTimeout(async () => {
+        cerrar();
+        if (ignoreBlurSave) {
+          ignoreBlurSave = false;
+          return;
+        }
+        const norm = normalizarNombreEstructura(inputEl.value);
+        if (norm.length >= 2) {
+          inputEl.value = norm;
+          if (!existeEnEstructura(rol, norm)) {
+            await guardarEstructuraAuto(rol, norm, { codigoMunicipio: getMunCode() });
+          }
+        }
+      }, 130);
+    });
+
+    COMBOBOX_REFRESHERS.push(() => {
+      if (isOpen) renderMenu(false);
+    });
+  }
+
+  [
+    ['grp-enlace', 'enlace', () => $('grp-municipio').value],
+    ['grp-resp-local', 'responsable_local', () => $('grp-municipio').value],
+    ['grp-resp-comunidad', 'responsable_comunidad', () => $('grp-municipio').value],
+    ['grp-resp-municipal', 'responsable_municipal', () => $('grp-municipio').value],
+    ['grp-resp-cal', 'responsable_cal', () => $('grp-municipio').value],
+    ['form-enlace', 'enlace', () => $('form-municipio').value],
+    ['form-resp-local', 'responsable_local', () => $('form-municipio').value],
+    ['form-resp-comunidad', 'responsable_comunidad', () => $('form-municipio').value],
+    ['form-resp-municipal', 'responsable_municipal', () => $('form-municipio').value],
+    ['form-resp-cal', 'responsable_cal', () => $('form-municipio').value],
+    ['drw-enlace', 'enlace', () => $('drw-municipio').value],
+    ['drw-resp-local', 'responsable_local', () => $('drw-municipio').value],
+    ['drw-resp-comunidad', 'responsable_comunidad', () => $('drw-municipio').value],
+    ['drw-resp-municipal', 'responsable_municipal', () => $('drw-municipio').value],
+    ['drw-resp-cal', 'responsable_cal', () => $('drw-municipio').value],
+  ].forEach(([id, rol, getMun]) => crearComboboxEstructura($(id), rol, getMun));
+
+  function abrirModalEstructura(item = null) {
+    const modal = $('estructura-modal');
+    const card = $('estructura-modal-card');
+    if (!modal) return;
+    $('estructura-form').reset();
+
+    if (item) {
+      $('est-modal-title').textContent = 'Editar Responsable de Estructura';
+      $('btn-guardar-estructura-text').textContent = 'Guardar Cambios';
+      $('est-rol').value = item.rol;
+      $('est-nombre').value = item.nombre;
+      $('est-cedula').value = item.cedula || '';
+      $('est-telefono').value = item.telefono || '';
+      $('est-municipio').value = item.codigo_municipio || '';
+    } else {
+      $('est-modal-title').textContent = 'Registrar en Estructura y Responsables';
+      $('btn-guardar-estructura-text').textContent = 'Guardar en Estructura';
+      if (STATE.estRolFiltro && ESTRUCTURA_ROLES[STATE.estRolFiltro]) {
+        $('est-rol').value = STATE.estRolFiltro;
+      }
+    }
+
+    modal.classList.remove('hidden');
+    retriggerAnim(card, 'animate-toast-in');
+    setTimeout(() => $('est-nombre').focus(), 40);
+  }
+
+  function cerrarModalEstructura() {
+    const modal = $('estructura-modal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    $('estructura-form').reset();
+  }
+
+  function renderizarEstructura() {
+    const chipsBox = $('est-role-chips');
+    const tbody = $('tabla-estructura-body');
+    const resumenEl = $('estructura-resumen');
+    if (!chipsBox || !tbody) return;
+
+    const conteosRol = {};
+    for (const rol of Object.keys(ESTRUCTURA_ROLES)) conteosRol[rol] = 0;
+    for (const it of STATE.estructura) {
+      if (conteosRol[it.rol] !== undefined) conteosRol[it.rol] += 1;
+    }
+
+    const chips = [
+      { rol: '', label: `Todos (${STATE.estructura.length})` },
+      ...Object.entries(ESTRUCTURA_ROLES).map(([rol, meta]) => ({
+        rol,
+        label: `${meta.corto} (${conteosRol[rol] || 0})`,
+      })),
+    ];
+
+    chipsBox.innerHTML = chips
+      .map((c) => {
+        const active = STATE.estRolFiltro === c.rol;
+        return `
+          <button
+            type="button"
+            data-est-rol="${escapeHtml(c.rol)}"
+            class="est-rol-chip cursor-pointer px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+              active
+                ? 'bg-[#2563EB] text-white border-[#2563EB]'
+                : 'bg-[#F8FAFC] text-slate-600 border-slate-200 hover:bg-slate-100'
+            }"
+          >
+            ${escapeHtml(c.label)}
+          </button>`;
+      })
+      .join('');
+
+    chipsBox.querySelectorAll('.est-rol-chip').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        STATE.estRolFiltro = btn.dataset.estRol || '';
+        renderizarEstructura();
+      });
+    });
+
+    const q = normalizarNombreEstructura($('est-buscar')?.value || '');
+    const filtrados = STATE.estructura.filter((it) => {
+      if (STATE.estRolFiltro && it.rol !== STATE.estRolFiltro) return false;
+      if (q) {
+        const hay = `${it.nombre} ${it.municipio || ''} ${it.cedula || ''}`.toUpperCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+
+    if (resumenEl) {
+      resumenEl.textContent = `${filtrados.length} de ${STATE.estructura.length} responsables registrados en estructura.`;
+    }
+
+    if (!filtrados.length) {
+      tbody.innerHTML =
+        '<tr><td colspan="6" class="px-4 py-10 text-center text-slate-500">No hay responsables registrados para este criterio.</td></tr>';
+      return;
+    }
+
+    const conteoPorRolNombre = new Map();
+    for (const act of STATE.todosActivistas) {
+      for (const [rol, meta] of Object.entries(ESTRUCTURA_ROLES)) {
+        const val = normalizarNombreEstructura(act[meta.campoActivista]);
+        if (val) {
+          const k = `${rol}|${val}`;
+          conteoPorRolNombre.set(k, (conteoPorRolNombre.get(k) || 0) + 1);
+        }
+      }
+    }
+
+    tbody.innerHTML = filtrados
+      .map((it) => {
+        const meta = ESTRUCTURA_ROLES[it.rol] || {
+          label: it.rol,
+          badge: 'bg-slate-100 text-slate-700 border-slate-200',
+        };
+        const vinculos = conteoPorRolNombre.get(`${it.rol}|${it.nombre}`) || 0;
+        const contacto = [it.cedula ? `V-${it.cedula}` : '', it.telefono || '']
+          .filter(Boolean)
+          .join(' • ');
+        return `
+          <tr class="hover:bg-slate-50/80">
+            <td class="px-4 py-3 font-semibold text-slate-800">${escapeHtml(it.nombre)}</td>
+            <td class="px-4 py-3">
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${meta.badge}">
+                ${escapeHtml(meta.label)}
+              </span>
+            </td>
+            <td class="px-4 py-3 text-slate-600">${escapeHtml(it.municipio || '—')}</td>
+            <td class="px-4 py-3 font-mono text-slate-600">${escapeHtml(contacto || '—')}</td>
+            <td class="px-4 py-3 text-center">
+              <span class="font-mono font-semibold text-[#2563EB]">${vinculos}</span>
+            </td>
+            <td class="px-4 py-3 text-right">
+              <div class="inline-flex items-center gap-1.5">
+                <button
+                  type="button"
+                  data-est-edit="${escapeHtml(it.id)}"
+                  class="est-btn-edit cursor-pointer px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-[#2563EB] font-semibold text-[11px] transition-colors"
+                >
+                  Editar
+                </button>
+                <button
+                  type="button"
+                  data-est-del="${escapeHtml(it.id)}"
+                  class="est-btn-del cursor-pointer px-2.5 py-1 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 font-semibold text-[11px] transition-colors"
+                >
+                  Eliminar
+                </button>
+              </div>
+            </td>
+          </tr>`;
+      })
+      .join('');
+
+    tbody.querySelectorAll('.est-btn-edit').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const item = STATE.estructura.find((x) => x.id === btn.dataset.estEdit);
+        if (item) abrirModalEstructura(item);
+      });
+    });
+
+    tbody.querySelectorAll('.est-btn-del').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const item = STATE.estructura.find((x) => x.id === btn.dataset.estDel);
+        if (!item) return;
+        if (!confirm(`¿Eliminar a ${item.nombre} del catálogo de Estructura y Responsables?`)) return;
+        try {
+          await apiFetch(`/api/estructura/${encodeURIComponent(item.id)}`, { method: 'DELETE' });
+          STATE.estructura = STATE.estructura.filter((x) => x.id !== item.id);
+          renderizarEstructura();
+          refrescarComboboxesEstructura();
+          mostrarToast(`${item.nombre} eliminado de estructura.`, 'ok');
+        } catch (err) {
+          mostrarToast(err.message, 'error');
+        }
+      });
+    });
+  }
+
+  $('btn-abrir-modal-estructura').addEventListener('click', () => abrirModalEstructura(null));
+  $('btn-cerrar-modal-estructura').addEventListener('click', cerrarModalEstructura);
+  $('btn-cancelar-modal-estructura').addEventListener('click', cerrarModalEstructura);
+  $('estructura-modal-backdrop').addEventListener('click', cerrarModalEstructura);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !$('estructura-modal').classList.contains('hidden')) {
+      cerrarModalEstructura();
+    }
+  });
+
+  $('est-buscar').addEventListener('input', renderizarEstructura);
+
+  $('estructura-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const payload = {
+      rol: $('est-rol').value,
+      nombre: $('est-nombre').value,
+      cedula: $('est-cedula').value,
+      telefono: $('est-telefono').value,
+      codigo_municipio: $('est-municipio').value,
+    };
+    try {
+      const res = await apiFetch('/api/estructura', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (data.item) {
+        const idx = STATE.estructura.findIndex((x) => x.id === data.item.id);
+        if (idx >= 0) STATE.estructura[idx] = data.item;
+        else STATE.estructura.push(data.item);
+        STATE.estructura.sort((a, b) =>
+          (a.rol + '|' + a.nombre).localeCompare(b.rol + '|' + b.nombre)
+        );
+      }
+      cerrarModalEstructura();
+      renderizarEstructura();
+      refrescarComboboxesEstructura();
+      mostrarToast(
+        `${data.item.nombre} ${data.creado ? 'registrado' : 'actualizado'} en Estructura y Responsables.`,
+        'ok'
+      );
+    } catch (err) {
+      mostrarToast(err.message, 'error');
+    }
+  });
 
   refreshIcons();
   if (STATE.token) {

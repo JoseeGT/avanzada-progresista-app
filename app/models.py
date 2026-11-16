@@ -1,6 +1,6 @@
 import re
 import unicodedata
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -365,3 +365,51 @@ class ActivistaInput(BaseModel):
 
 class LoteActivistasInput(BaseModel):
     activistas: List[ActivistaInput] = Field(..., min_length=1, max_length=100)
+
+
+ROLES_ESTRUCTURA: Tuple[str, ...] = (
+    "enlace",
+    "responsable_local",
+    "responsable_comunidad",
+    "responsable_municipal",
+    "responsable_cal",
+)
+
+
+class EstructuraInput(BaseModel):
+    rol: Literal[
+        "enlace",
+        "responsable_local",
+        "responsable_comunidad",
+        "responsable_municipal",
+        "responsable_cal",
+    ]
+    nombre: str = Field(..., min_length=2, max_length=150)
+    cedula: Optional[str] = Field(default="")
+    telefono: Optional[str] = Field(default="")
+    codigo_municipio: Optional[str] = Field(default="")
+    municipio: Optional[str] = Field(default="")
+
+    @field_validator("nombre", mode="before")
+    @classmethod
+    def sanitizar_nombre_estructura(cls, v: Any) -> str:
+        limpio = re.sub(r"\s+", " ", str(v or "")).strip().upper()
+        if len(limpio) < 2:
+            raise ValueError("El nombre debe tener al menos 2 caracteres.")
+        return limpio
+
+    @field_validator("cedula", mode="before")
+    @classmethod
+    def sanitizar_cedula_estructura(cls, v: Any) -> str:
+        return limpiar_cedula(str(v or ""))
+
+    @field_validator("telefono", mode="before")
+    @classmethod
+    def limpiar_telefono_estructura(cls, v: Any) -> str:
+        return re.sub(r"\s+", " ", str(v or "")).strip()
+
+    @field_validator("codigo_municipio", mode="before")
+    @classmethod
+    def normalizar_mun_estructura(cls, v: Any) -> str:
+        s = str(v or "").strip()
+        return s.zfill(2) if s.isdigit() else s

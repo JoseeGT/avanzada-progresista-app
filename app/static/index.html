@@ -290,12 +290,30 @@
       button:active:not(:disabled) {
         transform: scale(0.98);
       }
+
+      #contenedor-vista-tabla,
+      #contenedor-vista-cards {
+        transition: height 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+      }
+
+      #contenedor-vista-cards {
+        align-content: start;
+      }
+
+      .dir-row-enter {
+        animation: rowEnter 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+      }
+    }
+
+    @page {
+      margin: 0;
     }
 
     @media print {
       body {
         background: #ffffff !important;
         color: #1e293b !important;
+        padding: 12mm 14mm !important;
       }
       .no-print {
         display: none !important;
@@ -307,6 +325,8 @@
         overflow: visible !important;
         border: none !important;
         box-shadow: none !important;
+        min-height: 0 !important;
+        height: auto !important;
       }
       table {
         font-size: 10px !important;
@@ -474,6 +494,14 @@
               >
                 <i data-lucide="users" class="nav-icon w-4 h-4 shrink-0"></i>
                 <span>Directorio de Activistas</span>
+              </button>
+              <button
+                type="button"
+                data-tab="estructura"
+                class="nav-item cursor-pointer w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-all text-slate-300 hover:bg-slate-800/70 hover:text-white border border-transparent"
+              >
+                <i data-lucide="network" class="nav-icon w-4 h-4 shrink-0"></i>
+                <span>Estructura y Responsables</span>
               </button>
             </div>
           </div>
@@ -679,8 +707,8 @@
           <div id="modo-planilla-grupal" class="space-y-5">
             <form id="planilla-grupal-form" class="space-y-5">
               <!-- Cabecera de Planilla Física -->
-              <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                <div class="bg-[#F8FAFC] border-b border-slate-200 px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div class="bg-white rounded-2xl border border-slate-200 shadow-sm">
+                <div class="bg-[#F8FAFC] rounded-t-2xl border-b border-slate-200 px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <div class="flex items-center gap-3.5">
                     <div class="bg-white px-2.5 py-1.5 rounded-xl border border-slate-200/90 shadow-sm flex items-center gap-2.5 shrink-0">
                       <img src="/static/logo.png" alt="Avanzada Progresista" class="h-8 w-auto rounded object-contain" />
@@ -1147,6 +1175,15 @@
                 <p id="print-total" class="font-bold"></p>
               </div>
             </div>
+            <div id="print-destinatario-box" class="hidden mt-2.5 pt-2.5 border-t border-slate-200 flex items-center justify-between gap-4">
+              <div class="flex items-center gap-3">
+                <img id="print-destinatario-logo" src="" alt="Logo institución" class="hidden h-9 w-auto max-w-[120px] object-contain rounded border border-slate-200 bg-white p-0.5" />
+                <div>
+                  <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Dirigido a / Institución</p>
+                  <p id="print-destinatario-nombre" class="text-xs font-bold uppercase text-slate-800"></p>
+                </div>
+              </div>
+            </div>
           </div>
 
           <!-- Tira de Chips Rápidos de Municipios -->
@@ -1255,22 +1292,13 @@
 
             <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
               <span id="listado-conteo" class="text-xs font-mono font-semibold text-[#2563EB]">0 resultado(s)</span>
-              <div class="flex items-center gap-2">
-                <button
-                  type="button"
-                  id="btn-limpiar-filtros"
-                  class="cursor-pointer px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-xl transition-colors"
-                >
-                  Limpiar Filtros
-                </button>
-                <button
-                  type="button"
-                  id="btn-aplicar-filtros"
-                  class="cursor-pointer px-4 py-1.5 text-xs font-semibold text-white bg-[#2563EB] hover:bg-[#1D4ED8] rounded-xl transition-colors"
-                >
-                  Aplicar Filtros
-                </button>
-              </div>
+              <button
+                type="button"
+                id="btn-limpiar-filtros"
+                class="cursor-pointer px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-xl transition-colors"
+              >
+                Limpiar Filtros
+              </button>
             </div>
           </div>
 
@@ -1356,6 +1384,60 @@
 
           <!-- 6 Tablas Detalladas de Porcentajes Exactos (%) -->
           <div id="stats-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+        </section>
+
+        <!-- =========================================================
+             5. VISTA 4: ESTRUCTURA Y RESPONSABLES
+             ========================================================= -->
+        <section id="tab-estructura" class="hidden no-print space-y-5">
+          <!-- Directorio de Estructura y Responsables -->
+          <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
+            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+              <div>
+                <h3 class="text-base font-bold text-slate-800">Catálogo de Responsables Registrados</h3>
+                <p id="estructura-resumen" class="text-xs text-slate-500">Cargando responsables...</p>
+              </div>
+              <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+                <div class="relative w-full sm:w-64">
+                  <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                  <input
+                    id="est-buscar"
+                    type="text"
+                    placeholder="Buscar por nombre o municipio..."
+                    class="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]"
+                  />
+                </div>
+                <button
+                  type="button"
+                  id="btn-abrir-modal-estructura"
+                  class="cursor-pointer px-4 py-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold rounded-xl shadow-sm transition-colors inline-flex items-center justify-center gap-1.5 shrink-0"
+                >
+                  <i data-lucide="plus" class="w-4 h-4"></i>
+                  <span>Registrar Responsable</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Chips de Filtro por Rol -->
+            <div id="est-role-chips" class="flex flex-wrap gap-2"></div>
+
+            <!-- Tabla -->
+            <div class="overflow-x-auto rounded-xl border border-slate-200">
+              <table class="w-full text-xs">
+                <thead class="bg-[#F8FAFC] border-b border-slate-200">
+                  <tr>
+                    <th class="px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-600">Nombre y Apellido</th>
+                    <th class="px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-600">Cargo / Rol</th>
+                    <th class="px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-600">Municipio</th>
+                    <th class="px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-600">Cédula / Teléfono</th>
+                    <th class="px-4 py-3 text-center font-bold uppercase tracking-wider text-slate-600">Activistas</th>
+                    <th class="px-4 py-3 text-right font-bold uppercase tracking-wider text-slate-600">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="tabla-estructura-body" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+          </div>
         </section>
       </main>
     </div>
@@ -1506,6 +1588,226 @@
       </div>
     </div>
   </aside>
+
+  <!-- =========================================================
+       MODAL DE REGISTRO / EDICIÓN DE ESTRUCTURA Y RESPONSABLES
+       ========================================================= -->
+  <div
+    id="estructura-modal"
+    class="no-print hidden fixed inset-0 z-50 flex items-center justify-center p-4"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="est-modal-title"
+  >
+    <div id="estructura-modal-backdrop" class="fixed inset-0 bg-slate-900/40 backdrop-blur-[1px]"></div>
+    <div
+      id="estructura-modal-card"
+      class="relative z-10 w-full max-w-xl bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden animate-toast-in"
+    >
+      <div class="bg-[#F8FAFC] border-b border-slate-200 px-6 py-4 flex items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-blue-50 text-[#2563EB] flex items-center justify-center shrink-0">
+            <i data-lucide="network" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 id="est-modal-title" class="text-sm font-bold text-slate-800">Registrar en Estructura y Responsables</h3>
+            <p class="text-[11px] text-slate-500">Disponible automáticamente como opción seleccionable en Registro.</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          id="btn-cerrar-modal-estructura"
+          aria-label="Cerrar modal"
+          class="cursor-pointer p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors"
+        >
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="estructura-form" class="p-6 space-y-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="sm:col-span-2">
+            <label for="est-rol" class="block text-xs font-semibold text-slate-700 mb-1">Cargo / Rol *</label>
+            <select id="est-rol" required class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl bg-white outline-none focus:border-[#2563EB]">
+              <option value="enlace">Enlace (quien entrega)</option>
+              <option value="responsable_local">Responsable Local</option>
+              <option value="responsable_comunidad">Responsable de Comunidad</option>
+              <option value="responsable_municipal">Responsable Municipal</option>
+              <option value="responsable_cal">Responsable de CAL</option>
+            </select>
+          </div>
+          <div class="sm:col-span-2">
+            <label for="est-nombre" class="block text-xs font-semibold text-slate-700 mb-1">Nombre y Apellido *</label>
+            <input id="est-nombre" type="text" required minlength="2" placeholder="Ej: PEPITO PEREZ" class="w-full px-3 py-2 text-sm uppercase border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+          </div>
+          <div>
+            <label for="est-cedula" class="block text-xs font-semibold text-slate-700 mb-1">Cédula (Opcional)</label>
+            <input id="est-cedula" type="text" inputmode="numeric" placeholder="Ej: 12345678" class="w-full px-3 py-2 font-mono text-sm border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+          </div>
+          <div>
+            <label for="est-telefono" class="block text-xs font-semibold text-slate-700 mb-1">Teléfono (Opcional)</label>
+            <input id="est-telefono" type="text" placeholder="0412-0000000" class="w-full px-3 py-2 font-mono text-sm border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+          </div>
+          <div class="sm:col-span-2">
+            <label for="est-municipio" class="block text-xs font-semibold text-slate-700 mb-1">Municipio Asignado (Opcional)</label>
+            <select id="est-municipio" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl bg-white outline-none focus:border-[#2563EB]">
+              <option value="">Todos / No especificado</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+          <button
+            type="button"
+            id="btn-cancelar-modal-estructura"
+            class="cursor-pointer px-4 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            id="btn-guardar-estructura"
+            class="cursor-pointer px-5 py-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold rounded-xl shadow-sm transition-colors inline-flex items-center gap-1.5"
+          >
+            <i data-lucide="save" class="w-3.5 h-3.5"></i>
+            <span id="btn-guardar-estructura-text">Guardar en Estructura</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       MODAL DE CONFIGURACIÓN OPCIONAL DE REPORTE / PDF
+       ========================================================= -->
+  <div
+    id="reporte-modal"
+    class="no-print hidden fixed inset-0 z-50 flex items-center justify-center p-4"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="rpt-modal-title"
+  >
+    <div id="reporte-modal-backdrop" class="fixed inset-0 bg-slate-900/40 backdrop-blur-[1px]"></div>
+    <div
+      id="reporte-modal-card"
+      class="relative z-10 w-full max-w-md bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden animate-toast-in"
+    >
+      <div class="bg-[#F8FAFC] border-b border-slate-200 px-6 py-4 flex items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-blue-50 text-[#2563EB] flex items-center justify-center shrink-0">
+            <i data-lucide="printer" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 id="rpt-modal-title" class="text-sm font-bold text-slate-800">Imprimir Reporte / PDF</h3>
+            <p id="rpt-modal-resumen" class="text-[11px] text-slate-500">Formato oficial limpio sin encabezados del navegador.</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          id="btn-cerrar-modal-reporte"
+          aria-label="Cerrar modal"
+          class="cursor-pointer p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors"
+        >
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="p-6 space-y-4">
+        <div class="flex items-center justify-between gap-2 bg-[#F8FAFC] border border-slate-200 rounded-xl px-3.5 py-2.5">
+          <div class="text-xs text-slate-600">
+            <span class="font-semibold text-slate-800" id="rpt-conteo-badge">0 registros</span>
+            <span class="mx-1.5 text-slate-300">•</span>
+            <span id="rpt-filtros-badge">Listado General</span>
+          </div>
+        </div>
+
+        <!-- Botón toggle para mantenerlo sencillo cuando no se personaliza -->
+        <div class="flex items-center justify-between gap-2">
+          <button
+            type="button"
+            id="btn-toggle-personalizar-rpt"
+            class="cursor-pointer inline-flex items-center gap-1.5 text-xs font-semibold text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
+          >
+            <i data-lucide="building-2" class="w-3.5 h-3.5"></i>
+            <span id="btn-toggle-personalizar-text">Personalizar destinatario / institución (opcional)</span>
+          </button>
+          <button
+            type="button"
+            id="btn-limpiar-personalizar-rpt"
+            class="hidden cursor-pointer text-[11px] font-semibold text-slate-500 hover:text-red-600 transition-colors"
+          >
+            Usar estándar
+          </button>
+        </div>
+
+        <!-- Campos opcionales de destinatario y logo -->
+        <div id="rpt-personalizar-panel" class="hidden space-y-3 pt-2 border-t border-slate-100">
+          <div>
+            <label for="rpt-destinatario-nombre" class="block text-xs font-semibold text-slate-700 mb-1">
+              A quién o institución se dirige (Opcional)
+            </label>
+            <input
+              id="rpt-destinatario-nombre"
+              type="text"
+              maxlength="140"
+              placeholder="Ej: Consejo Nacional Electoral / Dirección Regional"
+              class="w-full px-3 py-2 text-xs uppercase border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]"
+            />
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">
+              Logo del destinatario / institución (Opcional)
+            </label>
+            <div class="flex items-center gap-3">
+              <label
+                for="rpt-destinatario-logo-input"
+                class="cursor-pointer inline-flex items-center gap-1.5 px-3 py-2 bg-[#F8FAFC] hover:bg-slate-100 border border-slate-300 text-slate-700 text-xs font-semibold rounded-xl transition-colors"
+              >
+                <i data-lucide="image-plus" class="w-3.5 h-3.5"></i>
+                <span>Seleccionar logo</span>
+              </label>
+              <input
+                id="rpt-destinatario-logo-input"
+                type="file"
+                accept="image/*"
+                class="hidden"
+              />
+              <div id="rpt-logo-preview-wrap" class="hidden items-center gap-2">
+                <img id="rpt-logo-preview" src="" alt="Vista previa" class="h-9 w-auto max-w-[90px] object-contain rounded-lg border border-slate-200 bg-white p-0.5" />
+                <button
+                  type="button"
+                  id="btn-quitar-logo-rpt"
+                  class="cursor-pointer text-[11px] font-semibold text-red-600 hover:text-red-700"
+                >
+                  Quitar
+                </button>
+              </div>
+              <span id="rpt-logo-empty-hint" class="text-[11px] text-slate-400">PNG, JPG o SVG</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-[#F8FAFC] border-t border-slate-200 px-6 py-3.5 flex items-center justify-end gap-2">
+        <button
+          type="button"
+          id="btn-cancelar-modal-reporte"
+          class="cursor-pointer px-4 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl transition-colors"
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          id="btn-confirmar-imprimir"
+          class="cursor-pointer px-5 py-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold rounded-xl shadow-sm transition-colors inline-flex items-center gap-1.5"
+        >
+          <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+          <span>Imprimir / Guardar PDF</span>
+        </button>
+      </div>
+    </div>
+  </div>
 
   <script src="/static/app.js"></script>
 </body>

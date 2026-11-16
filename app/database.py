@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import re
@@ -6,10 +7,11 @@ import threading
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from app.models import (
     CATALOGO_GEOGRAFICO,
+    ROLES_ESTRUCTURA,
     limpiar_cedula,
     mapear_geografia_cne,
     normalizar_texto,
@@ -24,9 +26,13 @@ FIREBASE_CRED_PATH = Path(
 LOCAL_FALLBACK_PATH = Path(
     os.getenv("LOCAL_FALLBACK_PATH", str(BASE_DIR / "activistas_local.json"))
 )
+LOCAL_ESTRUCTURA_PATH = Path(
+    os.getenv("LOCAL_ESTRUCTURA_PATH", str(BASE_DIR / "estructura_local.json"))
+)
 
 # Caché en memoria (Cuota Cero para Firestore)
 ACTIVISTAS_CACHE: Dict[str, Dict[str, Any]] = {}
+ESTRUCTURA_CACHE: Dict[str, Dict[str, Any]] = {}
 CACHE_LOCK = threading.Lock()
 
 # Estado del backend de persistencia
@@ -199,23 +205,120 @@ def buscar_elector_sqlite(cedula: str) -> Optional[Dict[str, Any]]:
         conn.close()
 
 
+def _guardar_json_atomico(path: Path, payload: Dict[str, Any]) -> None:
+    """Guarda un diccionario JSON en disco de forma atómica."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_suffix(".tmp")
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+    os.replace(tmp_path, path)
+
+
 def _guardar_fallback_json_locked() -> None:
     """Guarda el caché actual en activistas_local.json de forma atómica (requiere CACHE_LOCK)."""
-    LOCAL_FALLBACK_PATH.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = LOCAL_FALLBACK_PATH.with_suffix(".tmp")
-    with open(tmp_path, "w", encoding="utf-8") as f:
-        json.dump(ACTIVISTAS_CACHE, f, ensure_ascii=False, indent=2)
-    os.replace(tmp_path, LOCAL_FALLBACK_PATH)
+    _guardar_json_atomico(LOCAL_FALLBACK_PATH, ACTIVISTAS_CACHE)
+
+
+def _guardar_estructura_json_locked() -> None:
+    """Guarda el caché de estructura y responsables en estructura_local.json (requiere CACHE_LOCK)."""
+    _guardar_json_atomico(LOCAL_ESTRUCTURA_PATH, ESTRUCTURA_CACHE)
+
+
+def _estructura_id(rol: str, nombre: str) -> str:
+    """Genera un identificador estable y seguro para Firestore por (rol, nombre)."""
+    rol_clean = str(rol or "").strip().lower()
+    nombre_norm = re.sub(r"\s+", " ", str(nombre or "")).strip().upper()
+    digest = hashlib.sha1(f"{rol_clean}|{nombre_norm}".encode("utf-8")).hexdigest()[:12]
+    return f"{rol_clean}__{digest}"
+
+
+def _asegurar_estructura_item_locked(
+    rol: str,
+    nombre: str,
+    ahora: str,
+    cedula: str = "",
+    telefono: str = "",
+    codigo_municipio: str = "",
+    municipio: str = "",
+    sobrescribir_meta: bool = False,
+) -> Optional[Tuple[Dict[str, Any], bool]]:
+    """Inserta o actualiza un responsable en ESTRUCTURA_CACHE (requiere CACHE_LOCK)."""
+    rol_clean = str(rol or "").strip().lower()
+    nombre_norm = re.sub(r"\s+", " ", str(nombre or "")).strip().upper()
+    if rol_clean not in ROLES_ESTRUCTURA or len(nombre_norm) < 2:
+        return None
+
+    cod_mun = str(codigo_municipio or "").strip()
+    cod_mun = cod_mun.zfill(2) if cod_mun.isdigit() else ""
+    nom_mun = str(municipio or "").strip()
+    if cod_mun:
+        mun_obj = obtener_municipio_por_codigo(cod_mun)
+        if mun_obj:
+            cod_mun = mun_obj["codigo"]
+            nom_mun = mun_obj["nombre"]
+
+    item_id = _estructura_id(rol_clean, nombre_norm)
+    existente = ESTRUCTURA_CACHE.get(item_id)
+    if existente:
+        if not sobrescribir_meta:
+            return dict(existente), False
+        actualizado = dict(existente)
+        actualizado["cedula"] = limpiar_cedula(cedula) if cedula is not None else existente.get("cedula", "")
+        actualizado["telefono"] = re.sub(r"\s+", " ", str(telefono or "")).strip()
+        actualizado["codigo_municipio"] = cod_mun
+        actualizado["municipio"] = nom_mun
+        actualizado["fecha_actualizacion"] = ahora
+        ESTRUCTURA_CACHE[item_id] = actualizado
+        return dict(actualizado), False
+
+    nuevo = {
+        "id": item_id,
+        "rol": rol_clean,
+        "nombre": nombre_norm,
+        "cedula": limpiar_cedula(cedula) if cedula else "",
+        "telefono": re.sub(r"\s+", " ", str(telefono or "")).strip(),
+        "codigo_municipio": cod_mun,
+        "municipio": nom_mun,
+        "fecha_registro": ahora,
+        "fecha_actualizacion": ahora,
+    }
+    ESTRUCTURA_CACHE[item_id] = nuevo
+    return dict(nuevo), True
+
+
+def _extraer_estructura_de_activista_locked(
+    activista: Dict[str, Any], ahora: str
+) -> List[Dict[str, Any]]:
+    """Registra automáticamente en ESTRUCTURA_CACHE cualquier responsable nuevo presente en un activista."""
+    creados: List[Dict[str, Any]] = []
+    cod_mun = str(activista.get("codigo_municipio") or "")
+    nom_mun = str(activista.get("municipio") or "")
+    for rol in ROLES_ESTRUCTURA:
+        val = str(activista.get(rol) or "").strip()
+        if len(val) < 2:
+            continue
+        res = _asegurar_estructura_item_locked(
+            rol=rol,
+            nombre=val,
+            ahora=ahora,
+            codigo_municipio=cod_mun,
+            municipio=nom_mun,
+            sobrescribir_meta=False,
+        )
+        if res and res[1]:
+            creados.append(res[0])
+    return creados
 
 
 def init_databases() -> None:
-    """Inicializa padrón SQLite (si falta) y carga en memoria la colección activistas."""
+    """Inicializa padrón SQLite (si falta) y carga en memoria activistas y estructura."""
     global _FIRESTORE_DB, _MODO_PERSISTENCIA
 
     _asegurar_padron_prueba()
 
     with CACHE_LOCK:
         ACTIVISTAS_CACHE.clear()
+        ESTRUCTURA_CACHE.clear()
 
         if FIREBASE_CRED_PATH.exists():
             try:
@@ -229,13 +332,35 @@ def init_databases() -> None:
                 _MODO_PERSISTENCIA = "firestore"
 
                 # Carga ÚNICA inicial en memoria (Cuota Cero en lecturas posteriores)
-                docs = _FIRESTORE_DB.collection("activistas").stream()
-                for doc in docs:
+                for doc in _FIRESTORE_DB.collection("activistas").stream():
                     data = doc.to_dict() or {}
                     ced = limpiar_cedula(data.get("cedula") or doc.id)
                     if ced:
                         data["cedula"] = ced
                         ACTIVISTAS_CACHE[ced] = data
+
+                for doc in _FIRESTORE_DB.collection("estructura").stream():
+                    data = doc.to_dict() or {}
+                    rol = str(data.get("rol") or "").strip().lower()
+                    nombre = re.sub(r"\s+", " ", str(data.get("nombre") or "")).strip().upper()
+                    if rol in ROLES_ESTRUCTURA and len(nombre) >= 2:
+                        item_id = str(data.get("id") or _estructura_id(rol, nombre))
+                        data["id"] = item_id
+                        data["rol"] = rol
+                        data["nombre"] = nombre
+                        ESTRUCTURA_CACHE[item_id] = data
+
+                if not ESTRUCTURA_CACHE and ACTIVISTAS_CACHE:
+                    ahora = datetime.now(timezone.utc).isoformat()
+                    sembrados: List[Dict[str, Any]] = []
+                    for act in ACTIVISTAS_CACHE.values():
+                        sembrados.extend(_extraer_estructura_de_activista_locked(act, ahora))
+                    if sembrados:
+                        batch = _FIRESTORE_DB.batch()
+                        col = _FIRESTORE_DB.collection("estructura")
+                        for item in sembrados:
+                            batch.set(col.document(item["id"]), item)
+                        batch.commit()
                 return
             except Exception as exc:
                 print(f"[AVISO] No se pudo inicializar Firestore ({exc}). Activando Fallback JSON local.")
@@ -255,6 +380,31 @@ def init_databases() -> None:
                             ACTIVISTAS_CACHE[ced] = v
             except Exception as exc:
                 print(f"[AVISO] Error leyendo {LOCAL_FALLBACK_PATH}: {exc}")
+
+        if LOCAL_ESTRUCTURA_PATH.exists():
+            try:
+                with open(LOCAL_ESTRUCTURA_PATH, "r", encoding="utf-8") as f:
+                    raw_est = json.load(f)
+                if isinstance(raw_est, dict):
+                    for k, v in raw_est.items():
+                        if not isinstance(v, dict):
+                            continue
+                        rol = str(v.get("rol") or "").strip().lower()
+                        nombre = re.sub(r"\s+", " ", str(v.get("nombre") or "")).strip().upper()
+                        if rol in ROLES_ESTRUCTURA and len(nombre) >= 2:
+                            item_id = str(v.get("id") or k or _estructura_id(rol, nombre))
+                            v["id"] = item_id
+                            v["rol"] = rol
+                            v["nombre"] = nombre
+                            ESTRUCTURA_CACHE[item_id] = v
+            except Exception as exc:
+                print(f"[AVISO] Error leyendo {LOCAL_ESTRUCTURA_PATH}: {exc}")
+        elif ACTIVISTAS_CACHE:
+            ahora = datetime.now(timezone.utc).isoformat()
+            for act in ACTIVISTAS_CACHE.values():
+                _extraer_estructura_de_activista_locked(act, ahora)
+            if ESTRUCTURA_CACHE:
+                _guardar_estructura_json_locked()
 
 
 def obtener_estado_sistema() -> Dict[str, Any]:
@@ -347,12 +497,19 @@ def guardar_activista_db(datos: Dict[str, Any]) -> Dict[str, Any]:
     with CACHE_LOCK:
         preparado = _preparar_activista_locked(datos, ahora)
         ced = preparado["cedula"]
+        nuevos_est = _extraer_estructura_de_activista_locked(preparado, ahora)
 
         if _MODO_PERSISTENCIA == "firestore" and _FIRESTORE_DB is not None:
             _FIRESTORE_DB.collection("activistas").document(ced).set(preparado)
+            if nuevos_est:
+                col_est = _FIRESTORE_DB.collection("estructura")
+                for est_item in nuevos_est:
+                    col_est.document(est_item["id"]).set(est_item)
         else:
             ACTIVISTAS_CACHE[ced] = dict(preparado)
             _guardar_fallback_json_locked()
+            if nuevos_est:
+                _guardar_estructura_json_locked()
 
         ACTIVISTAS_CACHE[ced] = dict(preparado)
         return dict(preparado)
@@ -377,6 +534,7 @@ def guardar_activistas_lote_db(lista_datos: List[Dict[str, Any]]) -> Dict[str, A
             )
 
         preparados_por_ced: Dict[str, Dict[str, Any]] = {}
+        nuevos_est: List[Dict[str, Any]] = []
         for d in lista_datos:
             preparado = _preparar_activista_locked(d, ahora, codigo_lote=codigo_fallback)
             ced = preparado["cedula"]
@@ -385,17 +543,24 @@ def guardar_activistas_lote_db(lista_datos: List[Dict[str, Any]]) -> Dict[str, A
             else:
                 nuevos += 1
             preparados_por_ced[ced] = preparado
+            nuevos_est.extend(_extraer_estructura_de_activista_locked(preparado, ahora))
 
         if _MODO_PERSISTENCIA == "firestore" and _FIRESTORE_DB is not None:
             batch = _FIRESTORE_DB.batch()
             col = _FIRESTORE_DB.collection("activistas")
             for ced, item in preparados_por_ced.items():
                 batch.set(col.document(ced), item)
+            if nuevos_est:
+                col_est = _FIRESTORE_DB.collection("estructura")
+                for est_item in nuevos_est:
+                    batch.set(col_est.document(est_item["id"]), est_item)
             batch.commit()
         else:
             for ced, item in preparados_por_ced.items():
                 ACTIVISTAS_CACHE[ced] = dict(item)
             _guardar_fallback_json_locked()
+            if nuevos_est:
+                _guardar_estructura_json_locked()
 
         for ced, item in preparados_por_ced.items():
             ACTIVISTAS_CACHE[ced] = dict(item)
@@ -423,6 +588,58 @@ def eliminar_activista_db(cedula: str) -> bool:
         else:
             ACTIVISTAS_CACHE.pop(ced, None)
             _guardar_fallback_json_locked()
+        return True
+
+
+def listar_estructura_cache(rol: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Lista los responsables de estructura 100% desde caché en memoria."""
+    rol_q = str(rol or "").strip().lower()
+    with CACHE_LOCK:
+        items = [dict(v) for v in ESTRUCTURA_CACHE.values()]
+    if rol_q:
+        items = [i for i in items if i.get("rol") == rol_q]
+    items.sort(key=lambda x: (str(x.get("rol", "")), str(x.get("nombre", ""))))
+    return items
+
+
+def guardar_estructura_db(datos: Dict[str, Any]) -> Dict[str, Any]:
+    """Guarda o actualiza un responsable de estructura en Firestore (o JSON local) y caché."""
+    ahora = datetime.now(timezone.utc).isoformat()
+    with CACHE_LOCK:
+        res = _asegurar_estructura_item_locked(
+            rol=str(datos.get("rol") or ""),
+            nombre=str(datos.get("nombre") or ""),
+            ahora=ahora,
+            cedula=str(datos.get("cedula") or ""),
+            telefono=str(datos.get("telefono") or ""),
+            codigo_municipio=str(datos.get("codigo_municipio") or ""),
+            municipio=str(datos.get("municipio") or ""),
+            sobrescribir_meta=True,
+        )
+        if not res:
+            raise ValueError("Rol o nombre inválido para estructura.")
+        item, creado = res
+
+        if _MODO_PERSISTENCIA == "firestore" and _FIRESTORE_DB is not None:
+            _FIRESTORE_DB.collection("estructura").document(item["id"]).set(item)
+        else:
+            _guardar_estructura_json_locked()
+
+        return {"item": item, "creado": creado}
+
+
+def eliminar_estructura_db(item_id: str) -> bool:
+    """Elimina un responsable de estructura de Firestore (o JSON local) y del caché."""
+    clean_id = str(item_id or "").strip()
+    with CACHE_LOCK:
+        if clean_id not in ESTRUCTURA_CACHE:
+            return False
+        if _MODO_PERSISTENCIA == "firestore" and _FIRESTORE_DB is not None:
+            _FIRESTORE_DB.collection("estructura").document(clean_id).delete()
+            ESTRUCTURA_CACHE.pop(clean_id, None)
+        else:
+            ESTRUCTURA_CACHE.pop(clean_id, None)
+            _guardar_estructura_json_locked()
         return True
 
 

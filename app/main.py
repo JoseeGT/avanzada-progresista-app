@@ -18,17 +18,21 @@ from app.database import (
     buscar_elector_sqlite,
     calcular_estadisticas,
     eliminar_activista_db,
+    eliminar_estructura_db,
     filtrar_activistas,
     generar_codigo_planilla,
     guardar_activista_db,
     guardar_activistas_lote_db,
+    guardar_estructura_db,
     init_databases,
+    listar_estructura_cache,
     obtener_activista_cache,
     obtener_estado_sistema,
 )
 from app.models import (
     CATALOGO_GEOGRAFICO,
     ActivistaInput,
+    EstructuraInput,
     LoginRequest,
     LoteActivistasInput,
     limpiar_cedula,
@@ -239,6 +243,33 @@ def eliminar_activista(cedula: str, _: str = Depends(verify_token)) -> Dict[str,
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Activista no encontrado.",
+        )
+    return {"ok": True}
+
+
+@app.get("/api/estructura")
+def listar_estructura(
+    rol: Optional[str] = Query(default=None), _: str = Depends(verify_token)
+) -> Dict[str, Any]:
+    items = listar_estructura_cache(rol=rol)
+    return {"total": len(items), "registros": items}
+
+
+@app.post("/api/estructura")
+def guardar_estructura(
+    payload: EstructuraInput, _: str = Depends(verify_token)
+) -> Dict[str, Any]:
+    resultado = guardar_estructura_db(payload.model_dump())
+    return {"ok": True, **resultado}
+
+
+@app.delete("/api/estructura/{item_id}")
+def eliminar_estructura(item_id: str, _: str = Depends(verify_token)) -> Dict[str, Any]:
+    eliminado = eliminar_estructura_db(item_id)
+    if not eliminado:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Registro de estructura no encontrado.",
         )
     return {"ok": True}
 
