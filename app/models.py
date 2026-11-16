@@ -291,15 +291,18 @@ class ActivistaInput(BaseModel):
     codigo_parroquia: str = Field(..., min_length=1, max_length=4)
     parroquia: Optional[str] = Field(default="")
     centro_votacion: Optional[str] = Field(default="")
+    direccion: Optional[str] = Field(default="")
     telefono: Optional[str] = Field(default="")
     correo: Optional[str] = Field(default="")
     redes_sociales: Optional[str] = Field(default="")
     comunidad: Optional[str] = Field(default="")
     enlace: Optional[str] = Field(default="")
     responsable_municipal: Optional[str] = Field(default="")
+    responsable_comunidad: Optional[str] = Field(default="")
     responsable_cal: Optional[str] = Field(default="")
     responsable_local: Optional[str] = Field(default="")
     comite_activismo_local: Optional[str] = Field(default="")
+    direccion_cal: Optional[str] = Field(default="")
 
     @field_validator("cedula", mode="before")
     @classmethod
@@ -319,15 +322,30 @@ class ActivistaInput(BaseModel):
             return "M"
         return val[:1] if val else ""
 
-    @field_validator("nombre_apellido", "centro_votacion", "telefono", "correo", "redes_sociales", "codigo", mode="before")
+    @field_validator(
+        "nombre_apellido",
+        "centro_votacion",
+        "direccion",
+        "direccion_cal",
+        "telefono",
+        "correo",
+        "redes_sociales",
+        mode="before",
+    )
     @classmethod
     def limpiar_espacios(cls, v: Any) -> str:
         return re.sub(r"\s+", " ", str(v or "")).strip()
+
+    @field_validator("codigo", mode="before")
+    @classmethod
+    def normalizar_codigo_planilla(cls, v: Any) -> str:
+        return re.sub(r"\s+", "", str(v or "")).strip().upper()
 
     @field_validator(
         "comunidad",
         "enlace",
         "responsable_municipal",
+        "responsable_comunidad",
         "responsable_cal",
         "responsable_local",
         "comite_activismo_local",
@@ -343,3 +361,7 @@ class ActivistaInput(BaseModel):
     def normalizar_codigo_geo(cls, v: Any) -> str:
         s = str(v or "").strip()
         return s.zfill(2) if s.isdigit() else s
+
+
+class LoteActivistasInput(BaseModel):
+    activistas: List[ActivistaInput] = Field(..., min_length=1, max_length=100)

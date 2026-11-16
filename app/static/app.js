@@ -5,6 +5,8 @@
     token: sessionStorage.getItem('ap_token') || '',
     catalogo: [],
     modoEdicion: false,
+    registroModo: 'grupal', // 'grupal' | 'individual'
+    ultimoCodigoSugeridoGrupal: '',
     ultimoListado: [],
     todosActivistas: [],
     vistaDirectorio: 'tabla', // 'tabla' | 'cards'
@@ -48,6 +50,32 @@
     return (parts[0][0] + parts[1][0]).toUpperCase();
   }
 
+  function retriggerAnim(el, className) {
+    if (!el) return;
+    el.classList.remove(className);
+    void el.offsetWidth;
+    el.classList.add(className);
+  }
+
+  function animarNumeroKPI(el, targetVal) {
+    if (!el) return;
+    const end = Number(targetVal) || 0;
+    const start = Number(el.textContent) || 0;
+    if (start === end) {
+      el.textContent = String(end);
+      return;
+    }
+    const dur = 320;
+    const t0 = performance.now();
+    const step = (now) => {
+      const p = Math.min(1, (now - t0) / dur);
+      const eased = 1 - Math.pow(1 - p, 3);
+      el.textContent = String(Math.round(start + (end - start) * eased));
+      if (p < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+
   function mostrarToast(mensaje, tipo = 'info') {
     const box = $('toast-box');
     const estilos = {
@@ -58,6 +86,7 @@
     box.className = `no-print fixed bottom-5 right-5 z-50 max-w-sm px-4 py-3 rounded-xl shadow-md border text-sm font-medium ${estilos[tipo] || estilos.info}`;
     box.textContent = mensaje;
     box.classList.remove('hidden');
+    retriggerAnim(box, 'animate-toast-in');
     clearTimeout(box._timer);
     box._timer = setTimeout(() => box.classList.add('hidden'), 3800);
   }
@@ -106,6 +135,7 @@
     $('login-view').classList.add('hidden');
     $('app-view').classList.remove('hidden');
     refreshIcons();
+    requestAnimationFrame(() => actualizarPillModoCarga(false));
   }
 
   function cerrarSesionLocal() {
@@ -205,12 +235,12 @@
       const munCount = municipiosSet.size;
       const munPct = Math.round((munCount / 18) * 100);
 
-      $('kpi-total-activistas').textContent = total;
-      $('kpi-municipios-activos').textContent = munCount;
+      animarNumeroKPI($('kpi-total-activistas'), total);
+      animarNumeroKPI($('kpi-municipios-activos'), munCount);
       $('kpi-municipios-pct').textContent = `${munPct}%`;
       $('kpi-municipios-bar').style.width = `${munPct}%`;
-      $('kpi-cals-activos').textContent = calsSet.size;
-      $('kpi-centros-cubiertos').textContent = centrosSet.size;
+      animarNumeroKPI($('kpi-cals-activos'), calsSet.size);
+      animarNumeroKPI($('kpi-centros-cubiertos'), centrosSet.size);
       renderizarChipsMunicipios();
     } catch (_) {}
   }
@@ -224,19 +254,23 @@
   function activarTab(tabName) {
     ['registro', 'listados', 'estadisticas'].forEach((t) => {
       const sec = $(`tab-${t}`);
-      if (t === tabName) sec.classList.remove('hidden');
-      else sec.classList.add('hidden');
+      if (t === tabName) {
+        sec.classList.remove('hidden');
+        retriggerAnim(sec, 'animate-view-enter');
+      } else {
+        sec.classList.add('hidden');
+      }
     });
 
     document.querySelectorAll('.nav-item').forEach((btn) => {
       const icon = btn.querySelector('.nav-icon');
       if (btn.dataset.tab === tabName) {
         btn.classList.add('bg-blue-600/15', 'text-white', 'border-blue-500/30', 'font-semibold');
-        btn.classList.remove('text-slate-400', 'hover:bg-slate-800/70', 'hover:text-white', 'border-transparent', 'font-medium');
+        btn.classList.remove('text-slate-300', 'hover:bg-slate-800/70', 'hover:text-white', 'border-transparent', 'font-medium');
         if (icon) icon.classList.add('text-blue-400');
       } else {
         btn.classList.remove('bg-blue-600/15', 'text-white', 'border-blue-500/30', 'font-semibold');
-        btn.classList.add('text-slate-400', 'hover:bg-slate-800/70', 'hover:text-white', 'border-transparent', 'font-medium');
+        btn.classList.add('text-slate-300', 'hover:bg-slate-800/70', 'hover:text-white', 'border-transparent', 'font-medium');
         if (icon) icon.classList.remove('text-blue-400');
       }
     });
@@ -244,7 +278,9 @@
     $('topbar-view-title').textContent = VIEW_TITLES[tabName] || 'Panel Electoral';
     toggleSidebarMobile(false);
 
-    if (tabName === 'listados') {
+    if (tabName === 'registro') {
+      requestAnimationFrame(() => actualizarPillModoCarga(false));
+    } else if (tabName === 'listados') {
       cargarListado();
     } else if (tabName === 'estadisticas') {
       renderizarAnalitica();
@@ -256,10 +292,15 @@
   });
 
   $('btn-nuevo-registro-sidebar').addEventListener('click', () => {
-    $('cne-cedula-search').value = '';
-    limpiarFormulario();
     activarTab('registro');
-    $('cne-cedula-search').focus();
+    if (STATE.registroModo === 'grupal') {
+      limpiarPlanillaGrupal();
+      $('grp-codigo').focus();
+    } else {
+      $('cne-cedula-search').value = '';
+      limpiarFormulario();
+      $('cne-cedula-search').focus();
+    }
   });
 
   $('topbar-quick-search').addEventListener('keydown', (e) => {
@@ -267,6 +308,7 @@
       e.preventDefault();
       const q = $('topbar-quick-search').value.replace(/\D/g, '');
       if (q.length >= 5) {
+        setRegistroModo('individual');
         $('cne-cedula-search').value = q;
         activarTab('registro');
         buscarCedulaCNE();
@@ -284,6 +326,7 @@
     STATE.catalogo = await res.json();
 
     const selectsMun = [
+      { el: $('grp-municipio'), placeholder: 'Seleccione municipio...' },
       { el: $('form-municipio'), placeholder: 'Seleccione municipio...' },
       { el: $('flt-municipio'), placeholder: 'Todos los Municipios' },
       { el: $('drw-municipio'), placeholder: 'Seleccione municipio...' },
@@ -303,6 +346,7 @@
     poblarParroquiasSelect($('flt-parroquia'), '', '', 'Todas las Parroquias', true);
     poblarParroquiasSelect($('stats-flt-parroquia'), '', '', 'Todas las Parroquias', false);
     renderizarChipsMunicipios();
+    await actualizarCodigoSiguienteGrupal('01');
   }
 
   function poblarParroquiasSelect(
@@ -347,6 +391,24 @@
     } catch (_) {}
   }
 
+  async function actualizarCodigoSiguienteGrupal(codMun, forzar = false) {
+    if (!codMun) return;
+    const actual = $('grp-codigo').value.trim();
+    if (!forzar && actual && actual !== STATE.ultimoCodigoSugeridoGrupal) return;
+    try {
+      const res = await apiFetch(`/api/activistas/codigo-siguiente/${encodeURIComponent(codMun)}`);
+      const data = await res.json();
+      $('grp-codigo').value = data.codigo;
+      STATE.ultimoCodigoSugeridoGrupal = data.codigo;
+    } catch (_) {}
+  }
+
+  $('grp-municipio').addEventListener('change', async (e) => {
+    const codMun = e.target.value;
+    poblarParroquiasSelect($('grp-parroquia'), codMun);
+    await actualizarCodigoSiguienteGrupal(codMun || '01');
+  });
+
   $('form-municipio').addEventListener('change', async (e) => {
     const codMun = e.target.value;
     poblarParroquiasSelect($('form-parroquia'), codMun);
@@ -374,8 +436,111 @@
   });
 
   // =========================================================
-  // 3. VISTA 1: RECEPCIÓN Y REGISTRO
+  // 3. VISTA 1: RECEPCIÓN Y REGISTRO (GRUPAL + INDIVIDUAL)
   // =========================================================
+  const MODO_BTN_BASE =
+    'relative z-10 cursor-pointer inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors duration-200 sm:whitespace-nowrap';
+  const MODO_ANIM_CLASSES = [
+    'animate-view-enter',
+    'animate-modo-enter-left',
+    'animate-modo-enter-right',
+    'animate-modo-exit-left',
+    'animate-modo-exit-right',
+    'pointer-events-none',
+    'absolute',
+    'top-0',
+    'left-0',
+    'right-0',
+    'z-0',
+    'relative',
+    'z-10',
+  ];
+
+  function actualizarPillModoCarga(animar = true) {
+    const pill = $('modo-carga-pill');
+    const btnActivo = $(STATE.registroModo === 'grupal' ? 'btn-modo-grupal' : 'btn-modo-individual');
+    if (!pill || !btnActivo || !btnActivo.offsetWidth) return;
+
+    const aplicar = () => {
+      pill.style.width = `${btnActivo.offsetWidth}px`;
+      pill.style.transform = `translateX(${btnActivo.offsetLeft}px)`;
+      pill.style.opacity = '1';
+    };
+
+    if (!animar) {
+      pill.style.transition = 'none';
+      aplicar();
+      void pill.offsetWidth;
+      pill.style.transition = '';
+    } else {
+      aplicar();
+    }
+  }
+
+  function limpiarEstadoAnimModo(el) {
+    if (!el) return;
+    clearTimeout(el._modoExitTimer);
+    el.classList.remove(...MODO_ANIM_CLASSES);
+  }
+
+  function setRegistroModo(modo) {
+    const prevModo = STATE.registroModo;
+    STATE.registroModo = modo;
+    const esGrupal = modo === 'grupal';
+    const grupalEl = $('modo-planilla-grupal');
+    const indivEl = $('modo-registro-individual');
+
+    const btnGrupal = $('btn-modo-grupal');
+    const btnIndiv = $('btn-modo-individual');
+    btnGrupal.className = `${MODO_BTN_BASE} ${esGrupal ? 'text-[#2563EB]' : 'text-slate-600 hover:text-slate-900'}`;
+    btnIndiv.className = `${MODO_BTN_BASE} ${!esGrupal ? 'text-[#2563EB]' : 'text-slate-600 hover:text-slate-900'}`;
+    btnGrupal.setAttribute('aria-selected', esGrupal ? 'true' : 'false');
+    btnIndiv.setAttribute('aria-selected', !esGrupal ? 'true' : 'false');
+
+    actualizarPillModoCarga(true);
+
+    if (prevModo === modo) {
+      limpiarEstadoAnimModo(grupalEl);
+      limpiarEstadoAnimModo(indivEl);
+      grupalEl.classList.toggle('hidden', !esGrupal);
+      indivEl.classList.toggle('hidden', esGrupal);
+      return;
+    }
+
+    const outgoing = esGrupal ? indivEl : grupalEl;
+    const incoming = esGrupal ? grupalEl : indivEl;
+    const haciaDerecha = modo === 'individual';
+
+    limpiarEstadoAnimModo(outgoing);
+    limpiarEstadoAnimModo(incoming);
+
+    outgoing.classList.remove('hidden');
+    outgoing.classList.add('pointer-events-none', 'absolute', 'top-0', 'left-0', 'right-0', 'z-0');
+    retriggerAnim(outgoing, haciaDerecha ? 'animate-modo-exit-left' : 'animate-modo-exit-right');
+    outgoing._modoExitTimer = setTimeout(() => {
+      outgoing.classList.add('hidden');
+      limpiarEstadoAnimModo(outgoing);
+    }, 210);
+
+    incoming.classList.remove('hidden');
+    incoming.classList.add('relative', 'z-10');
+    retriggerAnim(incoming, haciaDerecha ? 'animate-modo-enter-right' : 'animate-modo-enter-left');
+
+    const descEl = $('registro-modo-desc');
+    descEl.textContent = esGrupal
+      ? 'Carga rápida por planilla física: llene la cabecera una vez y agregue la lista de personas.'
+      : 'Consulta individual en Padrón CNE y edición de expediente de una sola persona.';
+    retriggerAnim(descEl, 'animate-modo-desc');
+  }
+
+  $('btn-modo-grupal').addEventListener('click', () => setRegistroModo('grupal'));
+  $('btn-modo-individual').addEventListener('click', () => setRegistroModo('individual'));
+  window.addEventListener('resize', () => actualizarPillModoCarga(false));
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(() => actualizarPillModoCarga(false));
+  }
+  requestAnimationFrame(() => actualizarPillModoCarga(false));
+
   function setSexoUI(val) {
     const norm = String(val || '').toUpperCase();
     $('form-sexo').value = norm;
@@ -393,6 +558,180 @@
   document.querySelectorAll('.sexo-toggle').forEach((btn) => {
     btn.addEventListener('click', () => setSexoUI(btn.dataset.sexo));
   });
+
+  const REDES_PLATAFORMAS = [
+    'Instagram',
+    'Facebook',
+    'X (Twitter)',
+    'TikTok',
+    'YouTube',
+    'Telegram',
+    'Otra',
+  ];
+
+  function parsearRedesSociales(texto) {
+    const raw = String(texto || '').trim();
+    if (!raw) return [];
+    const partes = raw.split(/\s*(?:,|\||;)\s*/).filter(Boolean);
+    return partes.map((parte) => {
+      const idx = parte.indexOf(':');
+      if (idx > 0) {
+        const posiblePlat = parte.slice(0, idx).trim();
+        const resto = parte.slice(idx + 1).trim();
+        const match = REDES_PLATAFORMAS.find(
+          (p) => p.toLowerCase() === posiblePlat.toLowerCase()
+        );
+        if (match && resto) {
+          return { plataforma: match, usuario: resto };
+        }
+      }
+      return { plataforma: '', usuario: parte };
+    });
+  }
+
+  function construirUrlRedSocial(plataforma, usuario) {
+    const raw = String(usuario || '').trim();
+    if (!raw) return null;
+
+    if (/^https?:\/\//i.test(raw)) {
+      try {
+        const u = new URL(raw);
+        return u.protocol === 'http:' || u.protocol === 'https:' ? u.href : null;
+      } catch {
+        return null;
+      }
+    }
+
+    if (/^(www\.)?[a-z0-9-]+\.[a-z]{2,}\//i.test(raw)) {
+      try {
+        const u = new URL(`https://${raw}`);
+        return u.href;
+      } catch {
+        return null;
+      }
+    }
+
+    const handle = raw.replace(/^@+/, '').trim();
+    if (!handle || /\s/.test(handle)) return null;
+
+    const bases = {
+      Instagram: (h) => `https://www.instagram.com/${encodeURIComponent(h)}/`,
+      Facebook: (h) => `https://www.facebook.com/${encodeURIComponent(h)}`,
+      'X (Twitter)': (h) => `https://x.com/${encodeURIComponent(h)}`,
+      TikTok: (h) => `https://www.tiktok.com/@${encodeURIComponent(h)}`,
+      YouTube: (h) => `https://www.youtube.com/@${encodeURIComponent(h)}`,
+      Telegram: (h) => `https://t.me/${encodeURIComponent(h)}`,
+    };
+    const builder = bases[plataforma];
+    return builder ? builder(handle) : null;
+  }
+
+  function crearFilaRedSocial(containerEl, plataforma = '', usuario = '', compact = false) {
+    const row = document.createElement('div');
+    row.className = 'red-social-row flex items-center gap-2';
+
+    const select = document.createElement('select');
+    select.className = `red-plataforma ${
+      compact ? 'w-28 px-2 py-1.5 text-xs' : 'w-36 px-2.5 py-2 text-sm'
+    } border border-slate-300 rounded-xl bg-white outline-none focus:border-[#2563EB] shrink-0`;
+    const optDefault = document.createElement('option');
+    optDefault.value = '';
+    optDefault.textContent = 'Red...';
+    select.appendChild(optDefault);
+    REDES_PLATAFORMAS.forEach((p) => {
+      const opt = document.createElement('option');
+      opt.value = p;
+      opt.textContent = p;
+      if (p === plataforma) opt.selected = true;
+      select.appendChild(opt);
+    });
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = usuario;
+    input.placeholder = '@usuario o enlace';
+    input.className = `red-usuario flex-1 min-w-0 ${
+      compact ? 'px-2.5 py-1.5 text-xs' : 'px-3 py-2 text-sm'
+    } border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]`;
+
+    const linkOpen = document.createElement('a');
+    linkOpen.target = '_blank';
+    linkOpen.rel = 'noopener noreferrer';
+    linkOpen.title = 'Abrir perfil / contactar';
+    linkOpen.className = `hidden ${
+      compact ? 'p-1.5' : 'p-2'
+    } rounded-xl text-[#2563EB] bg-blue-50 hover:bg-blue-100 border border-blue-200 transition-colors shrink-0 items-center justify-center`;
+    linkOpen.innerHTML = '<i data-lucide="external-link" class="w-3.5 h-3.5"></i>';
+
+    const actualizarEnlaceFila = () => {
+      const url = construirUrlRedSocial(select.value, input.value);
+      if (url) {
+        linkOpen.href = url;
+        linkOpen.classList.remove('hidden');
+        linkOpen.classList.add('inline-flex');
+      } else {
+        linkOpen.removeAttribute('href');
+        linkOpen.classList.add('hidden');
+        linkOpen.classList.remove('inline-flex');
+      }
+    };
+    select.addEventListener('change', actualizarEnlaceFila);
+    input.addEventListener('input', actualizarEnlaceFila);
+
+    const btnDel = document.createElement('button');
+    btnDel.type = 'button';
+    btnDel.title = 'Quitar red social';
+    btnDel.className = `cursor-pointer ${
+      compact ? 'p-1.5' : 'p-2'
+    } rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 border border-slate-200 transition-colors shrink-0`;
+    btnDel.innerHTML = '<i data-lucide="x" class="w-3.5 h-3.5"></i>';
+    btnDel.addEventListener('click', () => {
+      if (containerEl.querySelectorAll('.red-social-row').length > 1) {
+        row.remove();
+      } else {
+        select.value = '';
+        input.value = '';
+        actualizarEnlaceFila();
+      }
+    });
+
+    row.appendChild(select);
+    row.appendChild(input);
+    row.appendChild(linkOpen);
+    row.appendChild(btnDel);
+    containerEl.appendChild(row);
+    actualizarEnlaceFila();
+    refreshIcons();
+  }
+
+  function cargarRedesEnContenedor(containerEl, texto, compact = false) {
+    containerEl.innerHTML = '';
+    const items = parsearRedesSociales(texto);
+    if (!items.length) {
+      crearFilaRedSocial(containerEl, '', '', compact);
+      return;
+    }
+    items.forEach((it) => crearFilaRedSocial(containerEl, it.plataforma, it.usuario, compact));
+  }
+
+  function serializarRedesSociales(containerEl) {
+    const valores = [];
+    containerEl.querySelectorAll('.red-social-row').forEach((row) => {
+      const plat = row.querySelector('.red-plataforma').value.trim();
+      const usr = row.querySelector('.red-usuario').value.trim();
+      if (!usr) return;
+      valores.push(plat ? `${plat}: ${usr}` : usr);
+    });
+    return valores.join(', ');
+  }
+
+  $('btn-add-form-red').addEventListener('click', () => {
+    crearFilaRedSocial($('form-redes-list'), '', '', false);
+  });
+  $('btn-add-drw-red').addEventListener('click', () => {
+    crearFilaRedSocial($('drw-redes-list'), '', '', true);
+  });
+  cargarRedesEnContenedor($('form-redes-list'), '', false);
 
   function actualizarBotonWhatsAppForm() {
     const wa = normalizarWhatsApp($('form-telefono').value);
@@ -438,6 +777,7 @@
     STATE.modoEdicion = false;
     $('activista-form').reset();
     $('form-parroquia').innerHTML = '<option value="">Seleccione parroquia...</option>';
+    cargarRedesEnContenedor($('form-redes-list'), '', false);
     setSexoUI('');
     $('btn-guardar-text').textContent = 'Guardar Activista';
     $('btn-eliminar-activista').classList.add('hidden');
@@ -460,12 +800,15 @@
 
     $('form-centro').value = d.centro_votacion || '';
     $('form-comunidad').value = d.comunidad || '';
+    $('form-direccion').value = d.direccion || '';
     $('form-telefono').value = d.telefono || '';
     $('form-correo').value = d.correo || '';
-    $('form-redes').value = d.redes_sociales || '';
+    cargarRedesEnContenedor($('form-redes-list'), d.redes_sociales || '', false);
     $('form-cal').value = d.comite_activismo_local || '';
+    $('form-direccion-cal').value = d.direccion_cal || '';
     $('form-resp-cal').value = d.responsable_cal || '';
     $('form-resp-local').value = d.responsable_local || '';
+    $('form-resp-comunidad').value = d.responsable_comunidad || '';
     $('form-resp-municipal').value = d.responsable_municipal || '';
     $('form-enlace').value = d.enlace || '';
 
@@ -529,21 +872,24 @@
     e.preventDefault();
     const payload = {
       cedula: $('form-cedula').value,
-      codigo: STATE.modoEdicion ? $('form-codigo').value : '',
+      codigo: $('form-codigo').value.trim(),
       nombre_apellido: $('form-nombre').value,
       sexo: $('form-sexo').value,
       codigo_municipio: $('form-municipio').value,
       codigo_parroquia: $('form-parroquia').value,
       centro_votacion: $('form-centro').value,
+      direccion: $('form-direccion').value,
       telefono: $('form-telefono').value,
       correo: $('form-correo').value,
-      redes_sociales: $('form-redes').value,
+      redes_sociales: serializarRedesSociales($('form-redes-list')),
       comunidad: $('form-comunidad').value,
       enlace: $('form-enlace').value,
       responsable_municipal: $('form-resp-municipal').value,
+      responsable_comunidad: $('form-resp-comunidad').value,
       responsable_cal: $('form-resp-cal').value,
       responsable_local: $('form-resp-local').value,
       comite_activismo_local: $('form-cal').value,
+      direccion_cal: $('form-direccion-cal').value,
     };
 
     try {
@@ -571,6 +917,332 @@
       mostrarToast(`Activista ${cedula} eliminado.`, 'ok');
       $('cne-cedula-search').value = '';
       limpiarFormulario();
+      await refrescarKPIs();
+    } catch (err) {
+      mostrarToast(err.message, 'error');
+    }
+  });
+
+  // =========================================================
+  // 3B. PLANILLA GRUPAL EN FORMATO DE LISTA
+  // =========================================================
+  function renumerarFilasPlanilla() {
+    $('grp-filas-body')
+      .querySelectorAll('.grp-row')
+      .forEach((tr, idx) => {
+        const numCell = tr.querySelector('.grp-row-num');
+        if (numCell) numCell.textContent = String(idx + 1);
+      });
+  }
+
+  function actualizarResumenPlanilla() {
+    let listas = 0;
+    let existentes = 0;
+    $('grp-filas-body')
+      .querySelectorAll('.grp-row')
+      .forEach((tr) => {
+        const ced = tr.querySelector('.grp-cedula').value.replace(/\D/g, '');
+        if (ced.length >= 5) {
+          listas += 1;
+          if (tr.dataset.estado === 'activistas') existentes += 1;
+        }
+      });
+    const nuevos = listas - existentes;
+    $('grp-resumen-filas').textContent = `${listas} persona(s) lista(s) para guardar (${nuevos} nueva(s), ${existentes} actualización(es))`;
+  }
+
+  function setEstadoFilaPlanilla(tr, tipo, textoCentro = '') {
+    tr.dataset.estado = tipo;
+    const badge = tr.querySelector('.grp-estado-badge');
+    const sub = tr.querySelector('.grp-centro-cne');
+
+    if (tipo === 'padron') {
+      badge.className = 'grp-estado-badge inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200';
+      badge.textContent = 'CNE OK';
+    } else if (tipo === 'activistas') {
+      badge.className = 'grp-estado-badge inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200';
+      badge.textContent = 'Ya existe';
+    } else if (tipo === 'ninguno') {
+      badge.className = 'grp-estado-badge inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200';
+      badge.textContent = 'Manual';
+    } else if (tipo === 'buscando') {
+      badge.className = 'grp-estado-badge inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-50 text-[#2563EB] border border-blue-200';
+      badge.textContent = 'Buscando...';
+    } else {
+      badge.className = 'grp-estado-badge inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-50 text-slate-400 border border-slate-200';
+      badge.textContent = 'Pendiente';
+    }
+
+    sub.textContent = textoCentro;
+    sub.title = textoCentro;
+  }
+
+  async function consultarCedulaFilaPlanilla(tr, forzar = false) {
+    const inputCed = tr.querySelector('.grp-cedula');
+    const raw = inputCed.value.replace(/\D/g, '');
+    inputCed.value = raw;
+
+    if (raw.length < 5) {
+      if (forzar && raw.length > 0) {
+        mostrarToast('La cédula debe tener al menos 5 dígitos.', 'error');
+      }
+      tr.dataset.lastCedula = '';
+      tr.dataset.cneMun = '';
+      tr.dataset.cnePar = '';
+      tr.dataset.cneCentro = '';
+      setEstadoFilaPlanilla(tr, 'pendiente', '');
+      actualizarResumenPlanilla();
+      return;
+    }
+
+    if (!forzar && tr.dataset.lastCedula === raw) return;
+    tr.dataset.lastCedula = raw;
+    setEstadoFilaPlanilla(tr, 'buscando', '');
+
+    try {
+      const res = await apiFetch(`/api/elector/${encodeURIComponent(raw)}`);
+      const data = await res.json();
+      const d = data.datos || {};
+
+      tr.dataset.cneMun = d.codigo_municipio || '';
+      tr.dataset.cnePar = d.codigo_parroquia || '';
+      tr.dataset.cneCentro = d.centro_votacion || '';
+
+      if (d.nombre_apellido) {
+        tr.querySelector('.grp-nombre').value = d.nombre_apellido;
+      }
+      if (d.sexo) {
+        tr.querySelector('.grp-sexo').value = d.sexo;
+      }
+
+      if (data.encontrado_en === 'activistas') {
+        if (d.telefono) tr.querySelector('.grp-telefono').value = d.telefono;
+        if (d.correo) tr.querySelector('.grp-correo').value = d.correo;
+        if (d.direccion) tr.querySelector('.grp-direccion').value = d.direccion;
+        if (d.redes_sociales) {
+          cargarRedesEnContenedor(tr.querySelector('.grp-redes-list'), d.redes_sociales, true);
+        }
+        setEstadoFilaPlanilla(tr, 'activistas', d.centro_votacion || '');
+        retriggerAnim(tr, 'animate-cne-flash');
+      } else if (data.encontrado_en === 'padron') {
+        setEstadoFilaPlanilla(tr, 'padron', d.centro_votacion || '');
+        retriggerAnim(tr, 'animate-cne-flash');
+      } else {
+        setEstadoFilaPlanilla(tr, 'ninguno', 'No hallado en CNE');
+      }
+    } catch (err) {
+      tr.dataset.lastCedula = '';
+      setEstadoFilaPlanilla(tr, 'pendiente', '');
+      mostrarToast(err.message, 'error');
+    }
+    actualizarResumenPlanilla();
+  }
+
+  function agregarFilaPlanilla(cantidad = 1) {
+    const tbody = $('grp-filas-body');
+    for (let i = 0; i < cantidad; i += 1) {
+      const tr = document.createElement('tr');
+      tr.className = 'grp-row hover:bg-blue-50/20 align-top';
+      tr.dataset.estado = 'pendiente';
+      tr.innerHTML = `
+        <td class="grp-row-num px-2.5 py-2.5 text-center font-mono font-bold text-slate-400"></td>
+        <td class="px-2 py-2">
+          <div class="flex items-center gap-1">
+            <input type="text" inputmode="numeric" placeholder="Cédula" class="grp-cedula w-24 px-2 py-1.5 font-mono text-xs border border-slate-300 rounded-lg outline-none focus:border-[#2563EB]" />
+            <button type="button" title="Consultar en Padrón CNE" class="grp-btn-cne cursor-pointer p-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-[#2563EB] border border-blue-200/80 shrink-0">
+              <i data-lucide="search" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        </td>
+        <td class="px-2 py-2">
+          <input type="text" placeholder="Nombre y apellido" class="grp-nombre w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg outline-none focus:border-[#2563EB]" />
+        </td>
+        <td class="px-2 py-2">
+          <select class="grp-sexo w-full px-1.5 py-1.5 text-xs border border-slate-300 rounded-lg bg-white outline-none focus:border-[#2563EB]">
+            <option value="">-</option>
+            <option value="H">H</option>
+            <option value="M">M</option>
+          </select>
+        </td>
+        <td class="px-2 py-2">
+          <input type="text" placeholder="0412-..." class="grp-telefono w-full px-2 py-1.5 font-mono text-xs border border-slate-300 rounded-lg outline-none focus:border-[#2563EB]" />
+        </td>
+        <td class="px-2 py-2">
+          <input type="email" placeholder="correo@..." class="grp-correo w-full px-2 py-1.5 text-xs border border-slate-300 rounded-lg outline-none focus:border-[#2563EB]" />
+        </td>
+        <td class="px-2 py-2">
+          <input type="text" placeholder="Dirección" class="grp-direccion w-full px-2 py-1.5 text-xs border border-slate-300 rounded-lg outline-none focus:border-[#2563EB]" />
+        </td>
+        <td class="px-2 py-2">
+          <div class="flex items-start gap-1.5">
+            <div class="grp-redes-list space-y-1.5 flex-1 min-w-0"></div>
+            <button type="button" title="Agregar otra red social" class="grp-btn-add-red cursor-pointer p-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-[#2563EB] border border-blue-200/80 shrink-0">
+              <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        </td>
+        <td class="px-2 py-2">
+          <span class="grp-estado-badge inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-50 text-slate-400 border border-slate-200">Pendiente</span>
+          <p class="grp-centro-cne text-[10px] text-slate-500 mt-1 max-w-[125px] truncate"></p>
+        </td>
+        <td class="px-2 py-2 text-center">
+          <button type="button" title="Quitar fila" class="grp-btn-del cursor-pointer p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          </button>
+        </td>
+      `;
+
+      const redesBox = tr.querySelector('.grp-redes-list');
+      cargarRedesEnContenedor(redesBox, '', true);
+
+      const inputCed = tr.querySelector('.grp-cedula');
+      inputCed.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          consultarCedulaFilaPlanilla(tr, true);
+        }
+      });
+      inputCed.addEventListener('blur', () => consultarCedulaFilaPlanilla(tr, false));
+      inputCed.addEventListener('input', actualizarResumenPlanilla);
+
+      tr.querySelector('.grp-btn-cne').addEventListener('click', () => {
+        consultarCedulaFilaPlanilla(tr, true);
+      });
+
+      tr.querySelector('.grp-btn-add-red').addEventListener('click', () => {
+        crearFilaRedSocial(redesBox, '', '', true);
+      });
+
+      tr.querySelector('.grp-btn-del').addEventListener('click', () => {
+        if (tbody.querySelectorAll('.grp-row').length > 1) {
+          tr.remove();
+          renumerarFilasPlanilla();
+          actualizarResumenPlanilla();
+        } else {
+          tr.querySelectorAll('input, select').forEach((el) => { el.value = ''; });
+          tr.dataset.lastCedula = '';
+          tr.dataset.cneMun = '';
+          tr.dataset.cnePar = '';
+          tr.dataset.cneCentro = '';
+          cargarRedesEnContenedor(redesBox, '', true);
+          setEstadoFilaPlanilla(tr, 'pendiente', '');
+          actualizarResumenPlanilla();
+        }
+      });
+
+      tbody.appendChild(tr);
+    }
+    renumerarFilasPlanilla();
+    actualizarResumenPlanilla();
+    refreshIcons();
+  }
+
+  function limpiarPlanillaGrupal() {
+    $('planilla-grupal-form').reset();
+    $('grp-parroquia').innerHTML = '<option value="">Seleccione parroquia...</option>';
+    $('grp-filas-body').innerHTML = '';
+    STATE.ultimoCodigoSugeridoGrupal = '';
+    agregarFilaPlanilla(5);
+    actualizarCodigoSiguienteGrupal('01', true);
+  }
+
+  $('btn-grp-add-1').addEventListener('click', () => agregarFilaPlanilla(1));
+  $('btn-grp-add-5').addEventListener('click', () => agregarFilaPlanilla(5));
+  $('btn-limpiar-planilla').addEventListener('click', limpiarPlanillaGrupal);
+  agregarFilaPlanilla(5);
+
+  $('planilla-grupal-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const codMunHdr = $('grp-municipio').value;
+    const codParHdr = $('grp-parroquia').value;
+    if (!codMunHdr || !codParHdr) {
+      mostrarToast('Seleccione el Municipio y la Parroquia en la cabecera de la planilla.', 'error');
+      return;
+    }
+
+    const codigoPlanilla = $('grp-codigo').value.trim().toUpperCase();
+    const cabecera = {
+      codigo: codigoPlanilla,
+      comunidad: $('grp-comunidad').value,
+      comite_activismo_local: $('grp-cal').value,
+      direccion_cal: $('grp-direccion-cal').value,
+      responsable_cal: $('grp-resp-cal').value,
+      enlace: $('grp-enlace').value,
+      responsable_local: $('grp-resp-local').value,
+      responsable_comunidad: $('grp-resp-comunidad').value,
+      responsable_municipal: $('grp-resp-municipal').value,
+    };
+    const centroCercanoHdr = $('grp-centro').value.trim();
+
+    const activistas = [];
+    const cedulasVistas = new Set();
+    let filaError = '';
+
+    $('grp-filas-body')
+      .querySelectorAll('.grp-row')
+      .forEach((tr, idx) => {
+        if (filaError) return;
+        const nFila = idx + 1;
+        const ced = tr.querySelector('.grp-cedula').value.replace(/\D/g, '');
+        const nombre = tr.querySelector('.grp-nombre').value.trim();
+        const tel = tr.querySelector('.grp-telefono').value.trim();
+        const correo = tr.querySelector('.grp-correo').value.trim();
+        const dir = tr.querySelector('.grp-direccion').value.trim();
+        const redes = serializarRedesSociales(tr.querySelector('.grp-redes-list'));
+
+        const tieneAlgunDato = Boolean(ced || nombre || tel || correo || dir || redes);
+        if (!tieneAlgunDato) return;
+
+        if (ced.length < 5 || ced.length > 12) {
+          filaError = `Fila #${nFila}: la cédula debe tener entre 5 y 12 dígitos.`;
+          return;
+        }
+        if (cedulasVistas.has(ced)) {
+          filaError = `Fila #${nFila}: la cédula ${ced} está repetida en esta misma planilla.`;
+          return;
+        }
+        if (nombre.length < 2) {
+          filaError = `Fila #${nFila}: falta el Nombre y Apellido (consulte el CNE o escríbalo).`;
+          return;
+        }
+        cedulasVistas.add(ced);
+
+        activistas.push(
+          Object.assign({}, cabecera, {
+            cedula: ced,
+            nombre_apellido: nombre,
+            sexo: tr.querySelector('.grp-sexo').value,
+            telefono: tel,
+            correo,
+            direccion: dir,
+            redes_sociales: redes,
+            codigo_municipio: tr.dataset.cneMun || codMunHdr,
+            codigo_parroquia: tr.dataset.cnePar || codParHdr,
+            centro_votacion: tr.dataset.cneCentro || centroCercanoHdr,
+          })
+        );
+      });
+
+    if (filaError) {
+      mostrarToast(filaError, 'error');
+      return;
+    }
+    if (!activistas.length) {
+      mostrarToast('Ingrese al menos una persona en la lista antes de guardar.', 'error');
+      return;
+    }
+
+    try {
+      const res = await apiFetch('/api/activistas/lote', {
+        method: 'POST',
+        body: JSON.stringify({ activistas }),
+      });
+      const data = await res.json();
+      mostrarToast(
+        `Planilla ${data.codigo_planilla} guardada: ${data.total_procesados} persona(s) (${data.nuevos} nueva(s), ${data.actualizados} actualizada(s)).`,
+        'ok'
+      );
+      limpiarPlanillaGrupal();
       await refrescarKPIs();
     } catch (err) {
       mostrarToast(err.message, 'error');
@@ -645,6 +1317,7 @@
       codigo_parroquia: $('flt-parroquia').value,
       centro_votacion: $('flt-centro').value.trim(),
       comunidad: $('flt-comunidad').value.trim(),
+      responsable_comunidad: $('flt-resp-comunidad').value.trim(),
       enlace: $('flt-enlace').value.trim(),
       responsable_cal: $('flt-resp-cal').value.trim(),
       responsable_local: $('flt-resp-local').value.trim(),
@@ -808,6 +1481,7 @@
     poblarParroquiasSelect($('flt-parroquia'), '', '', 'Todas las Parroquias', true);
     $('flt-centro').value = '';
     $('flt-comunidad').value = '';
+    $('flt-resp-comunidad').value = '';
     $('flt-enlace').value = '';
     $('flt-resp-cal').value = '';
     $('flt-resp-local').value = '';
@@ -843,28 +1517,47 @@
   function abrirDrawer(r, iniciarEnEdicion = false) {
     $('drawer-subtitle').textContent = `${r.codigo} • C.I. ${r.cedula}`;
 
+    const redesList = parsearRedesSociales(r.redes_sociales || '');
+    const redesHtml = redesList.length
+      ? `<div class="flex flex-wrap gap-1.5 mt-1">${redesList
+          .map((it) => {
+            const url = construirUrlRedSocial(it.plataforma, it.usuario);
+            const contenido = `${
+              it.plataforma ? `<span class="text-slate-500">${escapeHtml(it.plataforma)}:</span>` : ''
+            }<span>${escapeHtml(it.usuario)}</span>`;
+            if (url) {
+              return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" title="Abrir perfil / contactar" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-[#2563EB] border border-blue-200/80 text-[11px] font-semibold transition-colors">${contenido}<i data-lucide="external-link" class="w-3 h-3 shrink-0"></i></a>`;
+            }
+            return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200 text-[11px] font-semibold">${contenido}</span>`;
+          })
+          .join('')}</div>`
+      : '<p class="text-xs font-semibold text-slate-800 mt-0.5">-</p>';
+
     const campos = [
       ['Nombre y Apellido', r.nombre_apellido],
       ['Sexo', r.sexo || '-'],
       ['Teléfono', r.telefono || '-'],
       ['Correo', r.correo || '-'],
-      ['Redes Sociales', r.redes_sociales || '-'],
+      ['Dirección de Habitación', r.direccion || '-'],
+      ['Redes Sociales', null, redesHtml],
       ['Municipio', `${r.codigo_municipio} - ${r.municipio}`],
       ['Parroquia', `${r.codigo_parroquia} - ${r.parroquia}`],
       ['Centro de Votación', r.centro_votacion || '-'],
       ['Comunidad / Sector', r.comunidad || '-'],
       ['Comité Activismo Local (CAL)', r.comite_activismo_local || '-'],
+      ['Dirección del CAL', r.direccion_cal || '-'],
       ['Responsable de CAL', r.responsable_cal || '-'],
       ['Responsable Local', r.responsable_local || '-'],
+      ['Responsable de Comunidad', r.responsable_comunidad || '-'],
       ['Responsable Municipal', r.responsable_municipal || '-'],
       ['Enlace', r.enlace || '-'],
     ];
     $('drawer-view-mode').innerHTML = campos
       .map(
-        ([lbl, val]) => `
+        ([lbl, val, customHtml]) => `
         <div class="bg-[#F8FAFC] border border-slate-200/80 rounded-xl p-3">
           <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">${escapeHtml(lbl)}</p>
-          <p class="text-xs font-semibold text-slate-800 mt-0.5 break-words">${escapeHtml(val)}</p>
+          ${customHtml || `<p class="text-xs font-semibold text-slate-800 mt-0.5 break-words">${escapeHtml(val)}</p>`}
         </div>`
       )
       .join('');
@@ -880,11 +1573,14 @@
     poblarParroquiasSelect($('drw-parroquia'), codMun, codPar);
     $('drw-centro').value = r.centro_votacion || '';
     $('drw-correo').value = r.correo || '';
-    $('drw-redes').value = r.redes_sociales || '';
+    $('drw-direccion').value = r.direccion || '';
+    cargarRedesEnContenedor($('drw-redes-list'), r.redes_sociales || '', true);
     $('drw-comunidad').value = r.comunidad || '';
     $('drw-cal').value = r.comite_activismo_local || '';
+    $('drw-direccion-cal').value = r.direccion_cal || '';
     $('drw-resp-cal').value = r.responsable_cal || '';
     $('drw-resp-local').value = r.responsable_local || '';
+    $('drw-resp-comunidad').value = r.responsable_comunidad || '';
     $('drw-resp-municipal').value = r.responsable_municipal || '';
     $('drw-enlace').value = r.enlace || '';
 
@@ -920,11 +1616,14 @@
       codigo_parroquia: $('drw-parroquia').value,
       centro_votacion: $('drw-centro').value,
       correo: $('drw-correo').value,
-      redes_sociales: $('drw-redes').value,
+      direccion: $('drw-direccion').value,
+      redes_sociales: serializarRedesSociales($('drw-redes-list')),
       comunidad: $('drw-comunidad').value,
       comite_activismo_local: $('drw-cal').value,
+      direccion_cal: $('drw-direccion-cal').value,
       responsable_cal: $('drw-resp-cal').value,
       responsable_local: $('drw-resp-local').value,
+      responsable_comunidad: $('drw-resp-comunidad').value,
       responsable_municipal: $('drw-resp-municipal').value,
       enlace: $('drw-enlace').value,
     };

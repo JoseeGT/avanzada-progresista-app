@@ -289,12 +289,28 @@ def obtener_activista_cache(cedula: str) -> Optional[Dict[str, Any]]:
         return dict(item) if item else None
 
 
-def guardar_activista_db(datos: Dict[str, Any]) -> Dict[str, Any]:
-    """Guarda o actualiza un activista en Firestore (o Fallback JSON) y actualiza el caché."""
-    ced = limpiar_cedula(datos.get("cedula", ""))
-    ahora = datetime.now(timezone.utc).isoformat()
+def _calcular_siguiente_codigo_locked(codigo_municipio: str) -> str:
+    """Calcula el siguiente correlativo AP-XX-XXXX (requiere CACHE_LOCK)."""
+    cod_mun = str(codigo_municipio or "01").strip().zfill(2)
+    prefijo = f"AP-{cod_mun}-"
+    max_num = 0
+    for item in ACTIVISTAS_CACHE.values():
+        c = str(item.get("codigo") or "").strip().upper()
+        if c.startswith(prefijo) and c[len(prefijo) :].isdigit():
+            max_num = max(max_num, int(c[len(prefijo) :]))
+    return f"{prefijo}{max_num + 1:04d}"
 
-    # Completar nombres oficiales de municipio y parroquia desde catálogo
+
+def _preparar_activista_locked(
+    datos: Dict[str, Any],
+    ahora: str,
+    codigo_lote: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Normaliza geografía, código y fechas de un activista antes de persistir (requiere CACHE_LOCK)."""
+    datos = dict(datos)
+    ced = limpiar_cedula(datos.get("cedula", ""))
+    datos["cedula"] = ced
+
     mun_obj = obtener_municipio_por_codigo(datos.get("codigo_municipio", ""))
     if mun_obj:
         datos["codigo_municipio"] = mun_obj["codigo"]
@@ -306,35 +322,92 @@ def guardar_activista_db(datos: Dict[str, Any]) -> Dict[str, Any]:
                 datos["parroquia"] = par["nombre"]
                 break
 
-    with CACHE_LOCK:
-        existente = ACTIVISTAS_CACHE.get(ced)
-        if not datos.get("codigo"):
-            if existente and existente.get("codigo"):
-                datos["codigo"] = existente["codigo"]
-            else:
-                # Calcular correlativo sin deadlock (inline)
-                cod_mun = str(datos.get("codigo_municipio") or "01").zfill(2)
-                prefijo = f"AP-{cod_mun}-"
-                max_num = 0
-                for item in ACTIVISTAS_CACHE.values():
-                    c = str(item.get("codigo") or "").strip().upper()
-                    if c.startswith(prefijo) and c[len(prefijo) :].isdigit():
-                        max_num = max(max_num, int(c[len(prefijo) :]))
-                datos["codigo"] = f"{prefijo}{max_num + 1:04d}"
+    existente = ACTIVISTAS_CACHE.get(ced)
+    if not datos.get("codigo"):
+        if existente and existente.get("codigo"):
+            datos["codigo"] = existente["codigo"]
+        elif codigo_lote:
+            datos["codigo"] = codigo_lote
+        else:
+            datos["codigo"] = _calcular_siguiente_codigo_locked(
+                datos.get("codigo_municipio") or "01"
+            )
 
-        datos["fecha_registro"] = (
-            existente.get("fecha_registro", ahora) if existente else ahora
-        )
-        datos["fecha_actualizacion"] = ahora
+    datos["fecha_registro"] = (
+        existente.get("fecha_registro", ahora) if existente else ahora
+    )
+    datos["fecha_actualizacion"] = ahora
+    return datos
+
+
+def guardar_activista_db(datos: Dict[str, Any]) -> Dict[str, Any]:
+    """Guarda o actualiza un activista en Firestore (o Fallback JSON) y actualiza el caché."""
+    ahora = datetime.now(timezone.utc).isoformat()
+
+    with CACHE_LOCK:
+        preparado = _preparar_activista_locked(datos, ahora)
+        ced = preparado["cedula"]
 
         if _MODO_PERSISTENCIA == "firestore" and _FIRESTORE_DB is not None:
-            _FIRESTORE_DB.collection("activistas").document(ced).set(datos)
+            _FIRESTORE_DB.collection("activistas").document(ced).set(preparado)
         else:
-            ACTIVISTAS_CACHE[ced] = dict(datos)
+            ACTIVISTAS_CACHE[ced] = dict(preparado)
             _guardar_fallback_json_locked()
 
-        ACTIVISTAS_CACHE[ced] = dict(datos)
-        return dict(datos)
+        ACTIVISTAS_CACHE[ced] = dict(preparado)
+        return dict(preparado)
+
+
+def guardar_activistas_lote_db(lista_datos: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Guarda o actualiza múltiples activistas de una planilla en un solo lote (Cuota Cero en lecturas)."""
+    ahora = datetime.now(timezone.utc).isoformat()
+    guardados: List[Dict[str, Any]] = []
+    nuevos = 0
+    actualizados = 0
+
+    with CACHE_LOCK:
+        codigo_fallback = None
+        for d in lista_datos:
+            if d.get("codigo"):
+                codigo_fallback = str(d["codigo"]).strip().upper()
+                break
+        if not codigo_fallback and lista_datos:
+            codigo_fallback = _calcular_siguiente_codigo_locked(
+                lista_datos[0].get("codigo_municipio") or "01"
+            )
+
+        preparados_por_ced: Dict[str, Dict[str, Any]] = {}
+        for d in lista_datos:
+            preparado = _preparar_activista_locked(d, ahora, codigo_lote=codigo_fallback)
+            ced = preparado["cedula"]
+            if ced in ACTIVISTAS_CACHE or ced in preparados_por_ced:
+                actualizados += 1
+            else:
+                nuevos += 1
+            preparados_por_ced[ced] = preparado
+
+        if _MODO_PERSISTENCIA == "firestore" and _FIRESTORE_DB is not None:
+            batch = _FIRESTORE_DB.batch()
+            col = _FIRESTORE_DB.collection("activistas")
+            for ced, item in preparados_por_ced.items():
+                batch.set(col.document(ced), item)
+            batch.commit()
+        else:
+            for ced, item in preparados_por_ced.items():
+                ACTIVISTAS_CACHE[ced] = dict(item)
+            _guardar_fallback_json_locked()
+
+        for ced, item in preparados_por_ced.items():
+            ACTIVISTAS_CACHE[ced] = dict(item)
+            guardados.append(dict(item))
+
+    return {
+        "total_procesados": len(guardados),
+        "nuevos": nuevos,
+        "actualizados": actualizados,
+        "codigo_planilla": codigo_fallback or "",
+        "activistas": guardados,
+    }
 
 
 def eliminar_activista_db(cedula: str) -> bool:
@@ -362,9 +435,10 @@ def filtrar_activistas(
     enlace: Optional[str] = None,
     responsable_cal: Optional[str] = None,
     responsable_local: Optional[str] = None,
+    responsable_comunidad: Optional[str] = None,
     comunidad: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
-    """Ejecuta búsqueda por cédula y los 8 filtros combinables 100% sobre el caché en memoria."""
+    """Ejecuta búsqueda por cédula y los filtros combinables 100% sobre el caché en memoria."""
     ced_q = limpiar_cedula(cedula) if cedula else ""
     cod_q = normalizar_texto(codigo)
     mun_q = str(codigo_municipio).strip().zfill(2) if codigo_municipio and str(codigo_municipio).strip() else ""
@@ -373,6 +447,7 @@ def filtrar_activistas(
     enlace_q = normalizar_texto(enlace)
     resp_cal_q = normalizar_texto(responsable_cal)
     resp_loc_q = normalizar_texto(responsable_local)
+    resp_com_q = normalizar_texto(responsable_comunidad)
     comunidad_q = normalizar_texto(comunidad)
 
     with CACHE_LOCK:
@@ -395,6 +470,8 @@ def filtrar_activistas(
         if resp_cal_q and resp_cal_q not in normalizar_texto(r.get("responsable_cal", "")):
             continue
         if resp_loc_q and resp_loc_q not in normalizar_texto(r.get("responsable_local", "")):
+            continue
+        if resp_com_q and resp_com_q not in normalizar_texto(r.get("responsable_comunidad", "")):
             continue
         if comunidad_q and comunidad_q not in normalizar_texto(r.get("comunidad", "")):
             continue

@@ -21,11 +21,18 @@ from app.database import (
     filtrar_activistas,
     generar_codigo_planilla,
     guardar_activista_db,
+    guardar_activistas_lote_db,
     init_databases,
     obtener_activista_cache,
     obtener_estado_sistema,
 )
-from app.models import CATALOGO_GEOGRAFICO, ActivistaInput, LoginRequest, limpiar_cedula
+from app.models import (
+    CATALOGO_GEOGRAFICO,
+    ActivistaInput,
+    LoginRequest,
+    LoteActivistasInput,
+    limpiar_cedula,
+)
 
 load_dotenv()
 
@@ -190,6 +197,7 @@ def listar_activistas(
     enlace: Optional[str] = Query(default=None),
     responsable_cal: Optional[str] = Query(default=None),
     responsable_local: Optional[str] = Query(default=None),
+    responsable_comunidad: Optional[str] = Query(default=None),
     comunidad: Optional[str] = Query(default=None),
     _: str = Depends(verify_token),
 ) -> Dict[str, Any]:
@@ -202,6 +210,7 @@ def listar_activistas(
         enlace=enlace,
         responsable_cal=responsable_cal,
         responsable_local=responsable_local,
+        responsable_comunidad=responsable_comunidad,
         comunidad=comunidad,
     )
     return {"total": len(registros), "registros": registros}
@@ -213,6 +222,14 @@ def guardar_activista(
 ) -> Dict[str, Any]:
     guardado = guardar_activista_db(payload.model_dump())
     return {"ok": True, "activista": guardado}
+
+
+@app.post("/api/activistas/lote")
+def guardar_activistas_lote(
+    payload: LoteActivistasInput, _: str = Depends(verify_token)
+) -> Dict[str, Any]:
+    resultado = guardar_activistas_lote_db([a.model_dump() for a in payload.activistas])
+    return {"ok": True, **resultado}
 
 
 @app.delete("/api/activistas/{cedula}")
@@ -236,6 +253,7 @@ def exportar_csv(
     enlace: Optional[str] = Query(default=None),
     responsable_cal: Optional[str] = Query(default=None),
     responsable_local: Optional[str] = Query(default=None),
+    responsable_comunidad: Optional[str] = Query(default=None),
     comunidad: Optional[str] = Query(default=None),
     _: str = Depends(verify_token),
 ) -> StreamingResponse:
@@ -248,6 +266,7 @@ def exportar_csv(
         enlace=enlace,
         responsable_cal=responsable_cal,
         responsable_local=responsable_local,
+        responsable_comunidad=responsable_comunidad,
         comunidad=comunidad,
     )
 
@@ -265,15 +284,18 @@ def exportar_csv(
             "Cód. Parroquia",
             "Parroquia",
             "Centro de Votación",
+            "Dirección",
             "Teléfono",
             "Correo",
             "Redes Sociales",
             "Comunidad",
             "Enlace",
             "Responsable Municipal",
+            "Responsable de Comunidad",
             "Responsable CAL",
             "Responsable Local",
             "Comité de Activismo Local (CAL)",
+            "Dirección del CAL",
         ]
     )
     for r in registros:
@@ -288,15 +310,18 @@ def exportar_csv(
                 r.get("codigo_parroquia", ""),
                 r.get("parroquia", ""),
                 r.get("centro_votacion", ""),
+                r.get("direccion", ""),
                 r.get("telefono", ""),
                 r.get("correo", ""),
                 r.get("redes_sociales", ""),
                 r.get("comunidad", ""),
                 r.get("enlace", ""),
                 r.get("responsable_municipal", ""),
+                r.get("responsable_comunidad", ""),
                 r.get("responsable_cal", ""),
                 r.get("responsable_local", ""),
                 r.get("comite_activismo_local", ""),
+                r.get("direccion_cal", ""),
             ]
         )
 

@@ -37,6 +37,261 @@
       display: none;
     }
 
+    /* Tarjetas elevadas por drop-shadow sin bordes; fondos blancos limpios */
+    @media screen {
+      body,
+      #login-view,
+      #app-view {
+        background-color: #F4F6F9 !important;
+        color: #0F172A;
+      }
+
+      #app-view .bg-white.border:not(select):not(input):not(button),
+      #login-view .bg-white.border:not(select):not(input):not(button) {
+        border-color: transparent !important;
+        box-shadow: 0 6px 20px -4px rgba(15, 23, 42, 0.08), 0 2px 6px -1px rgba(15, 23, 42, 0.04) !important;
+      }
+
+      #app-view header {
+        border-bottom-color: transparent !important;
+        box-shadow: 0 4px 14px -4px rgba(15, 23, 42, 0.06);
+      }
+
+      #app-view div.border-slate-100,
+      #app-view div.border-slate-200,
+      #app-view div.border-slate-200\/80,
+      #app-view form.border-slate-200 {
+        border-color: transparent !important;
+      }
+
+      #app-view form .rounded-xl.p-4 {
+        background-color: #FFFFFF !important;
+        box-shadow: 0 2px 10px -2px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.04);
+      }
+
+      #app-view .bg-white label,
+      #login-view label {
+        color: #1E293B !important;
+      }
+
+      #app-view .bg-white .text-slate-500,
+      #app-view .bg-white .text-slate-400 {
+        color: #475569 !important;
+      }
+
+      #app-view input:not([type="hidden"]):not(#grp-codigo):not(#form-codigo),
+      #app-view select,
+      #login-view input {
+        border-color: #E2E8F0 !important;
+      }
+
+      #app-view input:not([type="hidden"]):not(#grp-codigo):not(#form-codigo):hover,
+      #app-view select:hover,
+      #login-view input:hover {
+        border-color: #CBD5E1 !important;
+      }
+
+      #app-view input:not([type="hidden"]):not(#grp-codigo):not(#form-codigo):focus,
+      #app-view select:focus,
+      #login-view input:focus {
+        border-color: #2563EB !important;
+      }
+
+      #app-view input::placeholder,
+      #login-view input::placeholder {
+        color: #64748B !important;
+        opacity: 1;
+      }
+
+      #app-view table thead {
+        background-color: #F8FAFC !important;
+        border-bottom: 1px solid #E2E8F0 !important;
+      }
+
+      #app-view table thead th {
+        color: #1E293B !important;
+      }
+
+      #app-view table tbody tr {
+        border-bottom: 1px solid #F1F5F9 !important;
+        transition: background-color 0.15s ease;
+      }
+
+      /* Animaciones fluidas de interfaz */
+      @keyframes fadeSlideUp {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes rowEnter {
+        from {
+          opacity: 0;
+          transform: translateY(-6px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes toastIn {
+        from {
+          opacity: 0;
+          transform: translateY(14px) scale(0.96);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+
+      @keyframes cneConfirmFlash {
+        0% {
+          background-color: rgba(16, 185, 129, 0.16);
+        }
+        100% {
+          background-color: transparent;
+        }
+      }
+
+      .animate-view-enter {
+        animation: fadeSlideUp 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+      }
+
+      @keyframes modoEnterRight {
+        from {
+          opacity: 0;
+          transform: translateX(24px) scale(0.99);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0) scale(1);
+        }
+      }
+
+      @keyframes modoEnterLeft {
+        from {
+          opacity: 0;
+          transform: translateX(-24px) scale(0.99);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0) scale(1);
+        }
+      }
+
+      @keyframes modoExitLeft {
+        from {
+          opacity: 1;
+          transform: translateX(0) scale(1);
+        }
+        to {
+          opacity: 0;
+          transform: translateX(-20px) scale(0.99);
+        }
+      }
+
+      @keyframes modoExitRight {
+        from {
+          opacity: 1;
+          transform: translateX(0) scale(1);
+        }
+        to {
+          opacity: 0;
+          transform: translateX(20px) scale(0.99);
+        }
+      }
+
+      @keyframes modoDescFade {
+        from {
+          opacity: 0;
+          transform: translateY(3px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .animate-modo-enter-right {
+        animation: modoEnterRight 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+      }
+
+      .animate-modo-enter-left {
+        animation: modoEnterLeft 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+      }
+
+      .animate-modo-exit-left {
+        animation: modoExitLeft 0.2s cubic-bezier(0.4, 0, 1, 1) both;
+      }
+
+      .animate-modo-exit-right {
+        animation: modoExitRight 0.2s cubic-bezier(0.4, 0, 1, 1) both;
+      }
+
+      .animate-modo-desc {
+        animation: modoDescFade 0.22s ease-out both;
+      }
+
+      #modo-carga-pill {
+        transition: transform 0.34s cubic-bezier(0.22, 1, 0.36, 1), width 0.34s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.18s ease;
+        box-shadow: 0 2px 6px -1px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.04);
+        will-change: transform, width;
+      }
+
+      #registro-views-stage {
+        position: relative;
+        overflow-x: clip;
+      }
+
+      .animate-row-enter,
+      .grp-row,
+      .red-social-row {
+        animation: rowEnter 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+      }
+
+      .animate-toast-in {
+        animation: toastIn 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
+      }
+
+      .animate-cne-flash {
+        animation: cneConfirmFlash 0.9s ease-out;
+      }
+
+      /* Micro-interacciones en tarjetas KPI, tarjetas del directorio, botones e inputs */
+      section[aria-label="Indicadores Clave"] > div,
+      #contenedor-vista-cards > div,
+      #stats-grid > div {
+        transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
+      }
+
+      section[aria-label="Indicadores Clave"] > div:hover,
+      #contenedor-vista-cards > div:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 24px -6px rgba(15, 23, 42, 0.12), 0 4px 10px -2px rgba(15, 23, 42, 0.06) !important;
+      }
+
+      #app-view input,
+      #app-view select,
+      #login-view input {
+        transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+      }
+
+      button {
+        transition: transform 0.12s ease, background-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+      }
+
+      button:active:not(:disabled) {
+        transform: scale(0.98);
+      }
+    }
+
     @media print {
       body {
         background: #ffffff !important;
@@ -78,13 +333,19 @@
   >
     <div class="h-1.5 w-full fixed top-0 left-0 bg-[#2563EB] z-20"></div>
 
-    <div class="w-full max-w-[420px] bg-white rounded-2xl border border-slate-200/90 shadow-lg overflow-hidden z-10">
-      <div class="bg-[#F8FAFC] border-b border-slate-200/80 px-8 py-6 flex flex-col items-center text-center">
-        <div class="bg-white p-1.5 rounded-xl border border-slate-200/80 shadow-sm">
+    <div class="w-full max-w-[420px] bg-white rounded-2xl border border-slate-200/90 shadow-lg overflow-hidden z-10 animate-view-enter">
+      <div class="bg-[#F8FAFC] border-b border-slate-200/80 px-6 py-6 flex flex-col items-center text-center">
+        <div class="bg-white px-4 py-2.5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-center gap-4">
           <img
             src="/static/logo.png"
             alt="Avanzada Progresista"
-            class="h-12 w-auto mx-auto rounded-lg object-contain"
+            class="h-11 w-auto rounded-lg object-contain"
+          />
+          <div class="h-10 w-px bg-slate-200"></div>
+          <img
+            src="/static/logo_cepa.png?v=2"
+            alt="Centro de Estudios Políticos Aplicados"
+            class="h-14 w-auto object-contain"
           />
         </div>
         <span class="mt-3 inline-flex items-center px-3 py-1 rounded-full text-[11px] font-semibold uppercase tracking-wider bg-blue-50 text-[#2563EB] border border-blue-200/70">
@@ -160,15 +421,22 @@
         <!-- Cabecera Sidebar -->
         <div class="p-4 border-b border-slate-800 flex items-center justify-between gap-2">
           <div class="flex flex-col gap-1.5 w-full">
-            <div class="bg-white p-1 rounded-xl shadow-md">
+            <div class="bg-white p-2 rounded-xl shadow-md space-y-2">
               <img
                 src="/static/logo.png"
                 alt="Avanzada Progresista"
                 class="w-full h-auto rounded-lg object-contain"
               />
+              <div class="border-t border-slate-100 pt-1.5 flex justify-center">
+                <img
+                  src="/static/logo_cepa.png?v=2"
+                  alt="Centro de Estudios Políticos Aplicados"
+                  class="h-16 w-auto object-contain"
+                />
+              </div>
             </div>
             <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 px-1">
-              AP ARAGUA • SISTEMA CAL
+              AP ARAGUA • CEPA • SISTEMA CAL
             </p>
           </div>
           <button type="button" id="btn-close-sidebar" class="lg:hidden cursor-pointer text-slate-400 hover:text-white self-start">
@@ -189,7 +457,7 @@
         <!-- Navegación Compacta -->
         <nav class="px-3 py-3 space-y-3 overflow-y-auto" aria-label="Navegación principal">
           <div>
-            <p class="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">Operaciones</p>
+            <p class="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Operaciones</p>
             <div class="space-y-1">
               <button
                 type="button"
@@ -202,7 +470,7 @@
               <button
                 type="button"
                 data-tab="listados"
-                class="nav-item cursor-pointer w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-all text-slate-400 hover:bg-slate-800/70 hover:text-white border border-transparent"
+                class="nav-item cursor-pointer w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-all text-slate-300 hover:bg-slate-800/70 hover:text-white border border-transparent"
               >
                 <i data-lucide="users" class="nav-icon w-4 h-4 shrink-0"></i>
                 <span>Directorio de Activistas</span>
@@ -211,12 +479,12 @@
           </div>
 
           <div>
-            <p class="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">Analítica</p>
+            <p class="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Analítica</p>
             <div class="space-y-1">
               <button
                 type="button"
                 data-tab="estadisticas"
-                class="nav-item cursor-pointer w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-all text-slate-400 hover:bg-slate-800/70 hover:text-white border border-transparent"
+                class="nav-item cursor-pointer w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-all text-slate-300 hover:bg-slate-800/70 hover:text-white border border-transparent"
               >
                 <i data-lucide="bar-chart-3" class="nav-icon w-4 h-4 shrink-0"></i>
                 <span>Reportes y Analítica (%)</span>
@@ -225,7 +493,7 @@
           </div>
 
           <div>
-            <p class="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">Sistema</p>
+            <p class="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Sistema</p>
             <div class="bg-slate-800/60 border border-slate-700/70 rounded-xl p-3 text-slate-300 space-y-1.5 text-xs">
               <div class="flex items-center justify-between">
                 <span class="text-slate-400">Base de Datos</span>
@@ -346,9 +614,9 @@
           </div>
 
           <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
-            <div class="flex items-center justify-between">
-              <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Centros de Votación Cubiertos</span>
-              <span class="text-[10px] font-medium text-slate-400">CNE</span>
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500 leading-tight">Centros de Votación Cubiertos</span>
+              <span class="text-[10px] font-medium text-slate-400 shrink-0">CNE</span>
             </div>
             <div class="mt-2 flex items-baseline justify-between">
               <p id="kpi-centros-cubiertos" class="text-2xl font-bold font-mono text-slate-800">0</p>
@@ -358,9 +626,221 @@
         </section>
 
         <!-- =========================================================
-             3. VISTA 1: RECEPCIÓN Y REGISTRO (1/3 Y 2/3 MEJORADO)
+             3. VISTA 1: RECEPCIÓN Y REGISTRO (PLANILLA GRUPAL + INDIVIDUAL)
              ========================================================= -->
-        <section id="tab-registro" class="no-print grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+        <section id="tab-registro" class="no-print space-y-5">
+          <!-- Selector de Modo de Registro -->
+          <div class="bg-white rounded-2xl border border-slate-200 px-5 py-3.5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-blue-50 text-[#2563EB] flex items-center justify-center shrink-0">
+                <i data-lucide="clipboard-list" class="w-4 h-4"></i>
+              </div>
+              <div>
+                <h3 class="text-sm font-bold text-slate-800">Modo de Carga</h3>
+                <p id="registro-modo-desc" class="text-xs text-slate-500">Carga rápida por planilla física: llene la cabecera una vez y agregue la lista de personas.</p>
+              </div>
+            </div>
+            <div
+              id="modo-carga-switch"
+              role="tablist"
+              aria-label="Modo de Carga"
+              class="relative inline-flex shrink-0 rounded-xl bg-[#F8FAFC] p-1 border border-slate-200 self-start sm:self-auto"
+            >
+              <span
+                id="modo-carga-pill"
+                aria-hidden="true"
+                class="pointer-events-none absolute top-1 bottom-1 left-0 rounded-lg bg-white opacity-0"
+              ></span>
+              <button
+                type="button"
+                id="btn-modo-grupal"
+                role="tab"
+                aria-selected="true"
+                class="relative z-10 cursor-pointer inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-[#2563EB] transition-colors duration-200 sm:whitespace-nowrap"
+              >
+                <i data-lucide="users" class="w-3.5 h-3.5"></i>
+                <span>Planilla Grupal (Lista)</span>
+              </button>
+              <button
+                type="button"
+                id="btn-modo-individual"
+                role="tab"
+                aria-selected="false"
+                class="relative z-10 cursor-pointer inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors duration-200 sm:whitespace-nowrap"
+              >
+                <i data-lucide="user-plus" class="w-3.5 h-3.5"></i>
+                <span>Registro Individual</span>
+              </button>
+            </div>
+          </div>
+
+          <div id="registro-views-stage">
+          <!-- MODO A: PLANILLA GRUPAL EN FORMATO DE LISTA -->
+          <div id="modo-planilla-grupal" class="space-y-5">
+            <form id="planilla-grupal-form" class="space-y-5">
+              <!-- Cabecera de Planilla Física -->
+              <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="bg-[#F8FAFC] border-b border-slate-200 px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div class="flex items-center gap-3.5">
+                    <div class="bg-white px-2.5 py-1.5 rounded-xl border border-slate-200/90 shadow-sm flex items-center gap-2.5 shrink-0">
+                      <img src="/static/logo.png" alt="Avanzada Progresista" class="h-8 w-auto rounded object-contain" />
+                      <div class="h-7 w-px bg-slate-200"></div>
+                      <img src="/static/logo_cepa.png?v=2" alt="Centro de Estudios Políticos Aplicados" class="h-10 w-auto object-contain" />
+                    </div>
+                    <div>
+                      <h4 class="text-sm font-bold tracking-wide uppercase text-slate-800">Planilla — Comité de Activismo Local (CAL)</h4>
+                      <p class="text-xs text-slate-500">Estado Aragua • Toda la lista comparte el código y cabecera de esta hoja</p>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-2 bg-[#F0F5FF] border border-blue-200 rounded-xl px-3 py-1.5 self-start sm:self-auto">
+                    <label for="grp-codigo" class="text-[11px] font-bold uppercase text-[#2563EB] whitespace-nowrap">Cód. Planilla:</label>
+                    <input
+                      id="grp-codigo"
+                      type="text"
+                      placeholder="AP-01-0001"
+                      class="w-28 bg-transparent font-mono text-xs font-bold text-[#2563EB] uppercase outline-none border-b border-blue-200 focus:border-[#2563EB] text-center"
+                    />
+                  </div>
+                </div>
+
+                <div class="p-6 space-y-4">
+                  <!-- Datos de la Planilla Impresa -->
+                  <div class="rounded-xl p-4 bg-white space-y-3">
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-600">Datos de la Planilla Física (CAL)</p>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <div>
+                        <label for="grp-municipio" class="block text-xs font-semibold text-slate-700 mb-1">Municipio *</label>
+                        <select id="grp-municipio" required class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl bg-white outline-none focus:border-[#2563EB]">
+                          <option value="">Seleccione municipio...</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label for="grp-parroquia" class="block text-xs font-semibold text-slate-700 mb-1">Parroquia *</label>
+                        <select id="grp-parroquia" required class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl bg-white outline-none focus:border-[#2563EB]">
+                          <option value="">Seleccione parroquia...</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label for="grp-comunidad" class="block text-xs font-semibold text-slate-700 mb-1">Comunidad o Barrio</label>
+                        <input id="grp-comunidad" type="text" placeholder="Nombre de la comunidad o barrio" class="w-full px-3 py-2 text-sm uppercase border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+                      </div>
+                      <div>
+                        <label for="grp-resp-cal" class="block text-xs font-semibold text-slate-700 mb-1">Responsable del CAL</label>
+                        <input id="grp-resp-cal" type="text" placeholder="Nombre del responsable del CAL" class="w-full px-3 py-2 text-sm uppercase border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+                      </div>
+                      <div>
+                        <label for="grp-cal" class="block text-xs font-semibold text-slate-700 mb-1">Nombre / Identificador del CAL</label>
+                        <input id="grp-cal" type="text" placeholder="Ej: CAL LAS DELICIAS 1" class="w-full px-3 py-2 text-sm uppercase border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+                      </div>
+                      <div>
+                        <label for="grp-centro" class="block text-xs font-semibold text-slate-700 mb-1">Centro de Votación Cercano</label>
+                        <input id="grp-centro" type="text" placeholder="Respaldo si no aparece en padrón CNE" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+                      </div>
+                      <div class="sm:col-span-2 lg:col-span-3">
+                        <label for="grp-direccion-cal" class="block text-xs font-semibold text-slate-700 mb-1">Dirección del Comité de Activismo Local</label>
+                        <input id="grp-direccion-cal" type="text" placeholder="Dirección exacta donde funciona el CAL" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Datos de Estructura y Carga (Audios) -->
+                  <div class="rounded-xl p-4 bg-white space-y-3">
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-600">Estructura y Responsables de la Planilla</p>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                      <div>
+                        <label for="grp-enlace" class="block text-xs font-semibold text-slate-700 mb-1">Enlace (quien entrega)</label>
+                        <input id="grp-enlace" type="text" placeholder="Ej: RAMIRO CHACON" class="w-full px-3 py-2 text-sm uppercase border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+                      </div>
+                      <div>
+                        <label for="grp-resp-local" class="block text-xs font-semibold text-slate-700 mb-1">Responsable Local</label>
+                        <input id="grp-resp-local" type="text" placeholder="Ej: JUANA PEREZ" class="w-full px-3 py-2 text-sm uppercase border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+                      </div>
+                      <div>
+                        <label for="grp-resp-comunidad" class="block text-xs font-semibold text-slate-700 mb-1">Responsable de Comunidad</label>
+                        <input id="grp-resp-comunidad" type="text" placeholder="Ej: JUAN BLANCO" class="w-full px-3 py-2 text-sm uppercase border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+                      </div>
+                      <div>
+                        <label for="grp-resp-municipal" class="block text-xs font-semibold text-slate-700 mb-1">Responsable Municipal</label>
+                        <input id="grp-resp-municipal" type="text" placeholder="Responsable del municipio" class="w-full px-3 py-2 text-sm uppercase border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Tabla / Lista de Integrantes de la Planilla -->
+              <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="px-6 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div>
+                    <h4 class="text-sm font-bold text-slate-800">Lista de Integrantes de la Planilla</h4>
+                    <p class="text-xs text-slate-500">Escriba la <strong>Cédula</strong> y presione <kbd class="px-1.5 py-0.5 text-[10px] bg-slate-100 border border-slate-300 rounded">Enter</kbd> o salga del campo para autocompletar desde el Padrón CNE.</p>
+                  </div>
+                  <div class="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      id="btn-grp-add-1"
+                      class="cursor-pointer inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-[#2563EB] text-xs font-semibold transition-colors"
+                    >
+                      <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                      <span>Agregar fila</span>
+                    </button>
+                    <button
+                      type="button"
+                      id="btn-grp-add-5"
+                      class="cursor-pointer inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors"
+                    >
+                      <i data-lucide="list-plus" class="w-3.5 h-3.5"></i>
+                      <span>+5 filas</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                  <table class="w-full min-w-[1150px] divide-y divide-slate-200 text-xs">
+                    <thead class="bg-[#F8FAFC] text-slate-600">
+                      <tr>
+                        <th class="px-2.5 py-3 text-center font-bold uppercase tracking-wider w-10">#</th>
+                        <th class="px-2.5 py-3 text-left font-bold uppercase tracking-wider w-36">Cédula *</th>
+                        <th class="px-2.5 py-3 text-left font-bold uppercase tracking-wider w-52">Nombre y Apellido *</th>
+                        <th class="px-2.5 py-3 text-left font-bold uppercase tracking-wider w-20">Sexo</th>
+                        <th class="px-2.5 py-3 text-left font-bold uppercase tracking-wider w-32">Teléfono</th>
+                        <th class="px-2.5 py-3 text-left font-bold uppercase tracking-wider w-40">Correo</th>
+                        <th class="px-2.5 py-3 text-left font-bold uppercase tracking-wider w-44">Dirección</th>
+                        <th class="px-2.5 py-3 text-left font-bold uppercase tracking-wider min-w-[260px]">Red(es) Social(es)</th>
+                        <th class="px-2.5 py-3 text-left font-bold uppercase tracking-wider w-32">Estado CNE</th>
+                        <th class="px-2.5 py-3 text-center font-bold uppercase tracking-wider w-12"></th>
+                      </tr>
+                    </thead>
+                    <tbody id="grp-filas-body" class="divide-y divide-slate-100 bg-white"></tbody>
+                  </table>
+                </div>
+
+                <div class="px-6 py-4 bg-[#F8FAFC] border-t border-slate-200 flex flex-wrap items-center justify-between gap-3">
+                  <div class="flex items-center gap-3">
+                    <button
+                      type="button"
+                      id="btn-limpiar-planilla"
+                      class="cursor-pointer px-4 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl transition-colors"
+                    >
+                      Limpiar Planilla
+                    </button>
+                    <span id="grp-resumen-filas" class="text-xs font-medium text-slate-600">0 persona(s) lista(s) para guardar</span>
+                  </div>
+                  <button
+                    type="submit"
+                    id="btn-guardar-planilla"
+                    class="cursor-pointer px-6 py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold rounded-xl shadow-sm transition-colors inline-flex items-center gap-2"
+                  >
+                    <i data-lucide="save" class="w-4 h-4"></i>
+                    <span>Guardar Planilla Completa</span>
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+
+          <!-- MODO B: REGISTRO INDIVIDUAL -->
+          <div id="modo-registro-individual" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
           <!-- Columna Izquierda (1/3) -->
           <div class="space-y-5">
             <!-- 1. CONSULTAR CÉDULA -->
@@ -469,9 +949,8 @@
                 <input
                   id="form-codigo"
                   type="text"
-                  readonly
                   value="AP-01-0001"
-                  class="w-24 bg-transparent font-mono text-xs font-bold text-[#2563EB] text-center outline-none"
+                  class="w-28 bg-transparent font-mono text-xs font-bold text-[#2563EB] uppercase text-center outline-none border-b border-blue-200 focus:border-[#2563EB]"
                 />
               </div>
             </div>
@@ -525,13 +1004,27 @@
                     </a>
                   </div>
                 </div>
-                <div>
+                <div class="sm:col-span-2">
                   <label for="form-correo" class="block text-xs font-semibold text-slate-700 mb-1">Correo Electrónico</label>
                   <input id="form-correo" type="email" placeholder="correo@ejemplo.com" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
                 </div>
-                <div>
-                  <label for="form-redes" class="block text-xs font-semibold text-slate-700 mb-1">Redes Sociales</label>
-                  <input id="form-redes" type="text" placeholder="@usuario" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+                <div class="sm:col-span-2 lg:col-span-4">
+                  <label for="form-direccion" class="block text-xs font-semibold text-slate-700 mb-1">Dirección de Habitación</label>
+                  <input id="form-direccion" type="text" placeholder="Calle, sector, número de casa" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+                </div>
+                <div class="sm:col-span-2 lg:col-span-4">
+                  <div class="flex items-center justify-between mb-1.5">
+                    <label class="block text-xs font-semibold text-slate-700">Redes Sociales</label>
+                    <button
+                      type="button"
+                      id="btn-add-form-red"
+                      class="cursor-pointer inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-[#2563EB] text-[11px] font-semibold transition-colors"
+                    >
+                      <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                      <span>Agregar red</span>
+                    </button>
+                  </div>
+                  <div id="form-redes-list" class="space-y-2"></div>
                 </div>
               </div>
             </div>
@@ -583,9 +1076,17 @@
                   <label for="form-resp-municipal" class="block text-xs font-semibold text-slate-700 mb-1">Responsable Municipal</label>
                   <input id="form-resp-municipal" type="text" placeholder="Responsable municipal" class="w-full px-3 py-2 text-sm uppercase border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
                 </div>
-                <div class="sm:col-span-2">
+                <div>
+                  <label for="form-resp-comunidad" class="block text-xs font-semibold text-slate-700 mb-1">Responsable de Comunidad</label>
+                  <input id="form-resp-comunidad" type="text" placeholder="Responsable en la comunidad" class="w-full px-3 py-2 text-sm uppercase border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+                </div>
+                <div>
                   <label for="form-enlace" class="block text-xs font-semibold text-slate-700 mb-1">Enlace</label>
                   <input id="form-enlace" type="text" placeholder="Nombre del enlace político" class="w-full px-3 py-2 text-sm uppercase border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+                </div>
+                <div class="sm:col-span-2 lg:col-span-3">
+                  <label for="form-direccion-cal" class="block text-xs font-semibold text-slate-700 mb-1">Dirección del Comité de Activismo Local (CAL)</label>
+                  <input id="form-direccion-cal" type="text" placeholder="Dirección sede o punto de reunión del CAL" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
                 </div>
               </div>
             </div>
@@ -617,6 +1118,8 @@
               </button>
             </div>
           </form>
+          </div>
+          </div>
         </section>
 
         <!-- =========================================================
@@ -627,12 +1130,14 @@
           <div class="print-only mb-4 border-b-2 border-slate-300 pb-3">
             <div class="flex items-center justify-between gap-4">
               <div class="flex items-center gap-3">
-                <div class="bg-white p-1 rounded-lg border border-slate-200">
-                  <img src="/static/logo.png" alt="Avanzada Progresista" class="h-12 w-auto object-contain" />
+                <div class="bg-white px-2.5 py-1.5 rounded-xl border border-slate-200 flex items-center gap-2.5 shrink-0">
+                  <img src="/static/logo.png" alt="Avanzada Progresista" class="h-10 w-auto rounded object-contain" />
+                  <div class="h-9 w-px bg-slate-200"></div>
+                  <img src="/static/logo_cepa.png?v=2" alt="Centro de Estudios Políticos Aplicados" class="h-12 w-auto object-contain" />
                 </div>
                 <div>
                   <h1 class="text-sm font-bold uppercase text-slate-800">
-                    AVANZADA PROGRESISTA — LISTADO OFICIAL DE ACTIVISTAS (ESTADO ARAGUA)
+                    AVANZADA PROGRESISTA • CEPA — LISTADO OFICIAL DE ACTIVISTAS (ESTADO ARAGUA)
                   </h1>
                   <p id="print-filtros-resumen" class="text-xs text-slate-600 mt-0.5"></p>
                 </div>
@@ -705,9 +1210,9 @@
               </div>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-3 border-t border-slate-100">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-3 border-t border-slate-100">
               <div>
-                <label for="flt-codigo" class="block text-[11px] font-semibold text-slate-600 mb-1">1. Código (AP-...)</label>
+                <label for="flt-codigo" class="block text-[11px] font-semibold text-slate-600 mb-1">1. Código Planilla (AP-...)</label>
                 <input id="flt-codigo" type="text" placeholder="AP-01-0001" class="w-full px-3 py-2 font-mono text-xs border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
               </div>
               <div>
@@ -727,19 +1232,23 @@
                 <input id="flt-centro" type="text" placeholder="Centro electoral" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
               </div>
               <div>
-                <label for="flt-comunidad" class="block text-[11px] font-semibold text-slate-600 mb-1">5. Comunidad</label>
+                <label for="flt-comunidad" class="block text-[11px] font-semibold text-slate-600 mb-1">5. Comunidad / Barrio</label>
                 <input id="flt-comunidad" type="text" placeholder="Comunidad / Sector" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
               </div>
               <div>
-                <label for="flt-enlace" class="block text-[11px] font-semibold text-slate-600 mb-1">6. Enlace</label>
+                <label for="flt-resp-comunidad" class="block text-[11px] font-semibold text-slate-600 mb-1">6. Responsable de Comunidad</label>
+                <input id="flt-resp-comunidad" type="text" placeholder="Responsable en la comunidad" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+              </div>
+              <div>
+                <label for="flt-enlace" class="block text-[11px] font-semibold text-slate-600 mb-1">7. Enlace</label>
                 <input id="flt-enlace" type="text" placeholder="Nombre del enlace" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
               </div>
               <div>
-                <label for="flt-resp-cal" class="block text-[11px] font-semibold text-slate-600 mb-1">7. Responsable de CAL</label>
+                <label for="flt-resp-cal" class="block text-[11px] font-semibold text-slate-600 mb-1">8. Responsable de CAL</label>
                 <input id="flt-resp-cal" type="text" placeholder="Responsable de CAL" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
               </div>
               <div>
-                <label for="flt-resp-local" class="block text-[11px] font-semibold text-slate-600 mb-1">8. Responsable Local</label>
+                <label for="flt-resp-local" class="block text-[11px] font-semibold text-slate-600 mb-1">9. Responsable Local</label>
                 <input id="flt-resp-local" type="text" placeholder="Responsable local" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
               </div>
             </div>
@@ -858,7 +1367,7 @@
   <div id="drawer-backdrop" class="no-print hidden fixed inset-0 bg-slate-600/25 z-40"></div>
   <aside
     id="drawer-panel"
-    class="no-print fixed inset-y-0 right-0 w-full max-w-md bg-white shadow-2xl border-l border-slate-200 z-50 transform translate-x-full transition-transform duration-200 flex flex-col"
+    class="no-print fixed inset-y-0 right-0 w-full max-w-md bg-white shadow-2xl border-l border-slate-200 z-50 transform translate-x-full transition-transform duration-300 ease-out flex flex-col"
   >
     <div class="bg-[#F8FAFC] border-b border-slate-200 px-6 py-4 flex items-center justify-between">
       <div>
@@ -907,15 +1416,27 @@
         <label class="block font-semibold text-slate-700 mb-1">Centro de Votación</label>
         <input id="drw-centro" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
       </div>
-      <div class="grid grid-cols-2 gap-3">
-        <div>
-          <label class="block font-semibold text-slate-700 mb-1">Correo</label>
-          <input id="drw-correo" type="email" class="w-full px-3 py-2 border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+      <div>
+        <label class="block font-semibold text-slate-700 mb-1">Correo</label>
+        <input id="drw-correo" type="email" class="w-full px-3 py-2 border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+      </div>
+      <div>
+        <div class="flex items-center justify-between mb-1.5">
+          <label class="block font-semibold text-slate-700">Redes Sociales</label>
+          <button
+            type="button"
+            id="btn-add-drw-red"
+            class="cursor-pointer inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-[#2563EB] text-[11px] font-semibold transition-colors"
+          >
+            <i data-lucide="plus" class="w-3 h-3"></i>
+            <span>Agregar red</span>
+          </button>
         </div>
-        <div>
-          <label class="block font-semibold text-slate-700 mb-1">Redes Sociales</label>
-          <input id="drw-redes" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
-        </div>
+        <div id="drw-redes-list" class="space-y-2"></div>
+      </div>
+      <div>
+        <label class="block font-semibold text-slate-700 mb-1">Dirección de Habitación</label>
+        <input id="drw-direccion" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
       </div>
       <div>
         <label class="block font-semibold text-slate-700 mb-1">Comunidad</label>
@@ -931,19 +1452,29 @@
           <input id="drw-resp-cal" type="text" class="w-full px-3 py-2 uppercase border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
         </div>
       </div>
+      <div>
+        <label class="block font-semibold text-slate-700 mb-1">Dirección del CAL</label>
+        <input id="drw-direccion-cal" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+      </div>
       <div class="grid grid-cols-2 gap-3">
         <div>
           <label class="block font-semibold text-slate-700 mb-1">Responsable Local</label>
           <input id="drw-resp-local" type="text" class="w-full px-3 py-2 uppercase border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
         </div>
         <div>
+          <label class="block font-semibold text-slate-700 mb-1">Responsable de Comunidad</label>
+          <input id="drw-resp-comunidad" type="text" class="w-full px-3 py-2 uppercase border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
           <label class="block font-semibold text-slate-700 mb-1">Responsable Municipal</label>
           <input id="drw-resp-municipal" type="text" class="w-full px-3 py-2 uppercase border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
         </div>
-      </div>
-      <div>
-        <label class="block font-semibold text-slate-700 mb-1">Enlace</label>
-        <input id="drw-enlace" type="text" class="w-full px-3 py-2 uppercase border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Enlace</label>
+          <input id="drw-enlace" type="text" class="w-full px-3 py-2 uppercase border border-slate-300 rounded-xl outline-none focus:border-[#2563EB]" />
+        </div>
       </div>
     </form>
 
