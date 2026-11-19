@@ -1,5 +1,8 @@
-fastapi
-uvicorn
-firebase-admin
-python-dotenv
-pydantic
+fastapi==0.162.5
+uvicorn==0.54.0
+firebase-admin==7.8.0
+python-dotenv==1.2.4
+pydantic==2.14.3
+openpyxl==3.1.5
+python-multipart==0.0.34
+pytest==9.2.0

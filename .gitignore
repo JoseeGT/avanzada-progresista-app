@@ -4,13 +4,22 @@ serviceAccountKey.json
 
 # Bases de datos y datos locales
 *.db
+!padron_cne.db.gz
+!padron_cne.db.gz.part*
 activistas_local.json
 estructura_local.json
+usuarios_local.json
+.sessions_local.json
+backups/
+
+# Node / Build temporal
+node_modules/
 
 # Python
 __pycache__/
 *.py[cod]
 *$py.class
+.pytest_cache/
 .venv/
 venv/
 env/
