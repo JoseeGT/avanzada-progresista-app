@@ -1,6 +1,7 @@
 # Entorno y secretos
 .env
 serviceAccountKey.json
+*firebase-adminsdk*.json
 
 # Bases de datos y datos locales
 *.db
