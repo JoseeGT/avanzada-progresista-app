@@ -1,3 +1,4 @@
+import json
 import logging
 import sqlite3
 import threading
@@ -202,6 +203,64 @@ def _row_sample_to_dict(row: sqlite3.Row) -> Dict[str, Any]:
     }
 
 
+_CATALOGO_CNE_PATH = Path(__file__).resolve().parent / "data" / "catalogo_cne.json"
+
+
+def _cargar_catalogo_precalculado(db_path: Path) -> bool:
+    """Carga el catálogo de centros desde JSON precalculado si corresponde a padron_cne.db."""
+    global TOTAL_ELECTORES_PADRON
+    if db_path.name != "padron_cne.db" or not _CATALOGO_CNE_PATH.exists():
+        return False
+
+    t0 = time.perf_counter()
+    try:
+        with open(_CATALOGO_CNE_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        centros = list(data.get("centros") or [])
+        mun_id_map = {str(k): int(v) for k, v in (data.get("mun_id_map") or {}).items()}
+        par_id_map = {
+            tuple(k.split("|", 1)): (int(v[0]), int(v[1]))
+            for k, v in (data.get("par_id_map") or {}).items()
+            if "|" in k and isinstance(v, list) and len(v) == 2
+        }
+        mun_totals = {
+            str(k): int(v) for k, v in (data.get("electores_por_municipio") or {}).items()
+        }
+        par_totals = {
+            tuple(k.split("|", 1)): int(v)
+            for k, v in (data.get("electores_por_parroquia") or {}).items()
+            if "|" in k
+        }
+        total_padron = int(data.get("total_electores_padron") or 0)
+        if not centros or total_padron <= 0:
+            return False
+
+        with _PADRON_LOCK:
+            CENTROS_CNE_CACHE.clear()
+            CENTROS_CNE_CACHE.extend(centros)
+            CNE_MUN_ID_MAP.clear()
+            CNE_MUN_ID_MAP.update(mun_id_map)
+            CNE_PAR_ID_MAP.clear()
+            CNE_PAR_ID_MAP.update(par_id_map)
+            ELECTORES_POR_MUNICIPIO.clear()
+            ELECTORES_POR_MUNICIPIO.update(mun_totals)
+            ELECTORES_POR_PARROQUIA.clear()
+            ELECTORES_POR_PARROQUIA.update(par_totals)
+            TOTAL_ELECTORES_PADRON = total_padron
+
+        logger.info(
+            "Catálogo CNE precalculado cargado en %.3fs: %d centros, %d electores.",
+            time.perf_counter() - t0,
+            len(centros),
+            total_padron,
+        )
+        return True
+    except Exception as exc:
+        logger.warning("No se pudo leer catalogo_cne.json (%s); recalculando desde SQLite.", exc)
+        return False
+
+
 def cargar_catalogo_padron() -> None:
     """Carga en memoria los 657 centros de votación y totales del padrón CNE al arrancar."""
     global TOTAL_ELECTORES_PADRON
@@ -213,6 +272,9 @@ def cargar_catalogo_padron() -> None:
             logger.error("Error al descomprimir el padrón desde .gz: %s", exc)
     asegurar_padron_prueba()
     if not db_path.exists():
+        return
+
+    if _cargar_catalogo_precalculado(db_path):
         return
 
     t0 = time.perf_counter()

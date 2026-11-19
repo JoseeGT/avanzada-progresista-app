@@ -195,17 +195,31 @@ function obtenerOpcionesCentrosCne(rawVal, getMunCode, getParCode, mostrarTodas)
   const tienePar = Boolean(getParCode());
   const q = normalizarFiltroTexto(rawVal);
 
-  let fuente = STATE.centrosCne;
-  if (!fuente.length) {
-    return obtenerOpcionesCampoActivista(
-      'centro_votacion',
-      rawVal,
-      getMunCode,
-      getParCode,
-      false,
-      mostrarTodas
-    );
+  const fuenteMap = new Map();
+  for (const c of STATE.centrosCne) {
+    const k = `${c.codigo_municipio || ''}|${c.codigo_parroquia || ''}|${normalizarFiltroTexto(c.centro_votacion)}`;
+    if (!fuenteMap.has(k)) fuenteMap.set(k, c);
   }
+  for (const act of STATE.todosActivistas) {
+    const nombre = String(act.centro_votacion || '').replace(/\s+/g, ' ').trim();
+    if (!nombre) continue;
+    const codM = String(act.codigo_municipio || '').trim().padStart(2, '0');
+    const codP = String(act.codigo_parroquia || '').trim().padStart(2, '0');
+    const k = `${codM}|${codP}|${normalizarFiltroTexto(nombre)}`;
+    if (!fuenteMap.has(k)) {
+      fuenteMap.set(k, {
+        cod_centro: act.cod_centro || '',
+        centro_votacion: nombre,
+        codigo_municipio: codM,
+        municipio: act.municipio || '',
+        codigo_parroquia: codP,
+        parroquia: act.parroquia || '',
+        electores_padron: 0,
+        agregado: true,
+      });
+    }
+  }
+  const fuente = Array.from(fuenteMap.values());
 
   let lista = fuente.filter((c) => {
     if (tieneMun && c.codigo_municipio !== munSel) return false;
@@ -231,6 +245,7 @@ function obtenerOpcionesCentrosCne(rawVal, getMunCode, getParCode, mostrarTodas)
     if (c.parroquia && !tienePar) metaParts.push(c.parroquia);
     if (c.cod_centro) metaParts.push(`Cód. ${c.cod_centro}`);
     if (c.electores_padron) metaParts.push(`${Number(c.electores_padron).toLocaleString('es-VE')} elec.`);
+    else if (c.agregado) metaParts.push('Centro agregado');
     return {
       valor: c.centro_votacion,
       label: c.centro_votacion,
@@ -241,10 +256,17 @@ function obtenerOpcionesCentrosCne(rawVal, getMunCode, getParCode, mostrarTodas)
     };
   });
 
+  const limpio = String(rawVal || '').replace(/\s+/g, ' ').trim().toUpperCase();
+  const yaExiste = lista.some((c) => normalizarFiltroTexto(c.centro_votacion) === q);
+  const puedeCrear =
+    STATE.user?.rol !== 'consulta' &&
+    limpio.length >= 3 &&
+    !yaExiste;
+
   return {
     items,
-    createLabel: '',
-    emptyText: 'Sin centros CNE coincidentes para esta zona.',
+    createLabel: puedeCrear ? limpio : '',
+    emptyText: 'Sin centros coincidentes. Escriba el nombre para agregarlo.',
   };
 }
 
@@ -343,6 +365,11 @@ export function crearCombobox(inputEl, cfg) {
       })
       .join('');
 
+    const createActionLabel =
+      cfg.tipo === 'centros_cne'
+        ? `+ Usar centro nuevo “${escapeHtml(createLabel)}”`
+        : `+ Guardar “${escapeHtml(createLabel)}” en estructura`;
+
     const createHtml = createLabel
       ? `
         <button
@@ -353,7 +380,7 @@ export function crearCombobox(inputEl, cfg) {
             activeIdx === items.length ? 'bg-blue-50' : 'bg-blue-50/40 hover:bg-blue-50'
           }"
         >
-          <span>+ Guardar “${escapeHtml(createLabel)}” en estructura</span>
+          <span>${createActionLabel}</span>
         </button>`
       : '';
 
